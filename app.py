@@ -1,31 +1,36 @@
 import streamlit as st
 
-st.set_page_config(page_title="Pediatric Dose Calculator", page_icon="💊", layout="wide")
+st.set_page_config(page_title="โปรแกรมคำนวณยาสูตรเด็ก", page_icon="👶", layout="wide")
 
-st.title("💊 โปรแกรมคำนวณขนาดยาในเด็ก (Pediatric Dose Calculator)")
-st.caption("ระบบคำนวณขนาดยาอ้างอิงตามเกณฑ์อายุและน้ำหนักตัว พร้อมระบบแจ้งเตือนช่วงอายุ")
+st.title("👶 โปรแกรมคำนวณขนาดขนาดยาสำหรับเด็ก (Pediatric Dose Calculator)")
+st.caption("ระบบคำนวณขนาดยา ปริมาตร (ml) และช้อนชา พร้อมระบบตรวจเช็คเกณฑ์อายุ")
 
-st.sidebar.header("📌 กรอกข้อมูลผู้ป่วย")
+# --- Section 1: ข้อมูลผู้ป่วย ---
+st.header("1. ข้อมูลผู้ป่วย")
+col1, col2 = st.columns(2)
 
-# 1. รับค่าอายุเป็น ปี และ เดือน
-col_y, col_m = st.sidebar.columns(2)
-with col_y:
-    age_years = st.number_input("อายุ (ปี)", min_value=0, max_value=18, value=3)
-with col_m:
-    age_months_input = st.number_input("อายุ (เดือน)", min_value=0, max_value=11, value=0)
+with col1:
+    st.subheader("อายุผู้ป่วย")
+    col_y, col_m = st.columns(2)
+    with col_y:
+        age_years = st.number_input("ปี (Years)", min_value=0, max_value=18, value=2, step=1)
+    with col_m:
+        age_months = st.number_input("เดือน (Months)", min_value=0, max_value=11, value=0, step=1)
+    
+    # คำนวณอายุรวมเป็นเดือนเพื่อใช้ประมวลผล Logic
+    total_months = (age_years * 12) + age_months
 
-# คำนวณอายุมวลรวม
-total_months = (age_years * 12) + age_months_input
-total_years = total_months / 12.0
+with col2:
+    st.subheader("น้ำหนักผู้ป่วย")
+    weight_kg = st.number_input("น้ำหนัก (kg)", min_value=0.0, max_value=100.0, value=12.0, step=0.5)
 
-# 2. รับค่าน้ำหนัก
-weight = st.sidebar.number_input("น้ำหนัก (kg)", min_value=0.0, max_value=100.0, value=15.0, step=0.5)
+st.write(f"👉 **สรุปข้อมูล:** อายุ **{age_years} ปี {age_months} เดือน** ({total_months} เดือน) | น้ำหนัก **{weight_kg:.1f} kg**")
+st.markdown("---")
 
-st.sidebar.info(f"📊 **ประมวลผล:** อายุ {age_years} ปี {age_months_input} เดือน ({total_months} เดือน) | น้ำหนัก {weight} kg")
+# --- Section 2: เลือกยาและความเข้มข้น ---
+st.header("2. เลือกยาและความเข้มข้น")
 
-st.subheader("💊 เลือกรายการยาที่ต้องการคำนวณ")
-
-# รายการยา 55 ตัว
+# รายชื่อยาทั้งหมด 55 ตัว
 drug_list = [
     # 1. Respiratory
     "Brompheniramine maleate", "Chlorpheniramine maleate", "Diphenhydramine", "Hydroxyzine",
@@ -40,627 +45,585 @@ drug_list = [
     # 3. Analgesic & Antipyretic
     "Acetaminophen", "Diclofenac", "Ibuprofen",
     # 4. Antimicrobial
-    "Penicillin V", "Amoxicillin / Amoxicillin + Clavulanic acid", "Cloxacillin",
-    "Dicloxacillin", "Cephalexin", "Cefuroxime", "Cefaclor", "Cefdinir", "Cefixime",
-    "Cefditoren pivoxil", "Erythromycin", "Azithromycin", "Roxithromycin", "Clarithromycin",
-    "Co-trimoxazole (TMP + SMX)"
+    "Penicillin V", "Amoxicillin / Amoxicillin + Clavulanic acid", "Cloxacillin", "Dicloxacillin",
+    "Cephalexin", "Cefuroxime", "Cefaclor", "Cefdinir", "Cefixime", "Cefditoren pivoxil",
+    "Erythromycin", "Azithromycin", "Roxithromycin", "Clarithromycin", "Co-trimoxazole (TMP + SMX)"
 ]
 
-selected_drug = st.selectbox("พิมพ์ชื่อยาหรือเลือกจากรายการ:", drug_list)
+selected_drug = st.selectbox("เลือกรายการยา:", drug_list)
 
-st.write("---")
+col_conc1, col_conc2 = st.columns(2)
+with col_conc1:
+    conc_mg = st.number_input("ความเข้มข้นตัวยา (mg หรือ mcg):", min_value=0.0, value=125.0, step=0.5)
+with col_conc2:
+    conc_ml = st.number_input("ต่อปริมาตร (ml):", min_value=0.1, value=5.0, step=0.5)
 
-# ฟังก์ชันแสดงผล 2 คอลัมน์สำหรับ Dual Calculation
-def render_dual_results(age_res, wt_res):
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("### 📅 คำนวณตามเกณฑ์อายุ")
-        if age_res["valid"]:
-            st.success(f"**ขนาดยา:** {age_res['dose']}")
-            if age_res.get("max"):
-                st.caption(f"🛑 ขนาดยาสูงสุด: {age_res['max']}")
-        else:
-            st.warning(f"⚠️ **ไม่อยู่ในช่วงอายุที่คำนวณได้:** {age_res['msg']}")
-            
-    with col2:
-        st.markdown("### ⚖️ คำนวณตามเกณฑ์น้ำหนัก")
-        if wt_res["valid"]:
-            st.info(f"**ขนาดยาที่คำนวณได้:** {wt_res['dose']}")
-            if wt_res.get("max"):
-                st.caption(f"🛑 ขนาดยาสูงสุด: {wt_res['max']}")
-        else:
-            st.warning(f"⚠️ **ไม่อยู่ในช่วงน้ำหนัก/เกณฑ์ที่คำนวณได้:** {wt_res['msg']}")
+st.markdown("---")
 
-# ฟังก์ชันแสดงผลเดี่ยว
-def render_single_result(res_dict, calc_type="น้ำหนัก/อายุ"):
-    if res_dict["valid"]:
-        st.success(f"**ขนาดยาแนะนำ ({calc_type}):**\n\n{res_dict['dose']}")
-        if res_dict.get("max"):
-            st.caption(f"🛑 ขนาดยาสูงสุด: {res_dict['max']}")
-    else:
-        st.warning(f"⚠️ **ไม่อยู่ในช่วงที่รองรับ:** {res_dict['msg']}")
+# --- Function คำนวณแปลง mg/mcg เป็น ml และ ช้อนชา ---
+def format_volume_result(dose_val, unit="mg"):
+    if dose_val is None or conc_mg <= 0:
+        return "N/A"
+    if isinstance(dose_val, tuple): # กรณีช่วงขนาดยา (min, max)
+        d_min, d_max = dose_val
+        ml_min = (d_min * conc_ml) / conc_mg
+        ml_max = (d_max * conc_ml) / conc_mg
+        tsp_min = ml_min / 5.0
+        tsp_max = ml_max / 5.0
+        return f"{d_min:.2f} - {d_max:.2f} {unit} ({ml_min:.2f} - {ml_max:.2f} ml / {tsp_min:.2f} - {tsp_max:.2f} ช้อนชา)"
+    else: # กรณีขนาดยาค่าเดียว
+        ml = (dose_val * conc_ml) / conc_mg
+        tsp = ml / 5.0
+        return f"{dose_val:.2f} {unit} ({ml:.2f} ml / {tsp:.2f} ช้อนชา)"
 
-# LOGIC การคำนวณยาทั้งหมด
+# --- Section 3: ประมวลผลและแสดงผลลัพธ์ ---
+st.header(f"3. ผลการคำนวณ: {selected_drug}")
+
+age_dose_info = None
+weight_dose_info = None
+age_out_of_range = False
+age_range_text = ""
+
+# Logic การคำนวณแยกตามรายยา (55 รายการ)
 if selected_drug == "Brompheniramine maleate":
-    # อายุ
-    age_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 2:
-        age_res["msg"] = "ยาชนิดนี้รองรับในเด็กอายุตั้งแต่ 2 ปีขึ้นไป"
-    elif 2 <= total_years < 6:
-        age_res = {"valid": True, "dose": f"0.125 mg/kg/dose = {0.125*weight:.2f} mg/dose ทุก 6-8 ชม.", "max": "8 mg/day"}
-    elif 6 <= total_years <= 12:
-        age_res = {"valid": True, "dose": "2 - 4 mg ทุก 6-8 ชม.", "max": "16 mg/day"}
+    if 24 <= total_months <= 72:
+        age_dose_info = "0.125 mg/kg/dose ทุก 6-8 ชม. (Max 8 mg/day)"
+    elif 72 < total_months <= 144:
+        age_dose_info = f"2 - 4 mg ทุก 6-8 ชม. (Max 16 mg/day) -> {format_volume_result((2, 4))}"
+    elif total_months > 144:
+        age_dose_info = f"4 - 8 mg ทุก 6-8 ชม. (Max 24 mg/day) -> {format_volume_result((4, 8))}"
     else:
-        age_res = {"valid": True, "dose": "4 - 8 mg ทุก 6-8 ชม.", "max": "24 mg/day"}
+        age_out_of_range = True
+        age_range_text = "มากกว่าหรือเท่ากับ 2 ปี (24 เดือนขึ้นไป)"
     
-    # น้ำหนัก
-    wt_res = {"valid": True, "dose": f"0.5 mg/kg/day = {0.5*weight:.2f} mg/day (แบ่งให้ทุก 6-8 ชม.)", "max": "-"}
-    render_dual_results(age_res, wt_res)
+    w_dose = (0.5 * weight_kg) / 3 # แบ่งจ่ายทุก 6-8 ชม. (3 ครั้ง/วัน)
+    weight_dose_info = f"0.5 mg/kg/day แบ่งจ่ายทุก 6-8 ชม. (~{w_dose:.2f} mg/dose) -> {format_volume_result(w_dose)}"
 
 elif selected_drug == "Chlorpheniramine maleate":
-    age_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 2:
-        age_res["msg"] = "รองรับในเด็กอายุตั้งแต่ 2 ปีขึ้นไป"
-    elif 2 <= total_years < 6:
-        age_res = {"valid": True, "dose": "1 mg ทุก 4-6 ชม.", "max": "8 mg/day"}
-    elif 6 <= total_years <= 12:
-        age_res = {"valid": True, "dose": "2 mg ทุก 4-6 ชม.", "max": "12 mg/day"}
+    if 24 <= total_months <= 72:
+        age_dose_info = f"1 mg ทุก 4-6 ชม. (Max 8 mg/day) -> {format_volume_result(1)}"
+    elif 72 < total_months <= 144:
+        age_dose_info = f"2 mg ทุก 4-6 ชม. (Max 12 mg/day) -> {format_volume_result(2)}"
+    elif total_months > 144:
+        age_dose_info = f"4 mg ทุก 4-6 ชม. (Max 24 mg/day) -> {format_volume_result(4)}"
     else:
-        age_res = {"valid": True, "dose": "4 mg ทุก 4-6 ชม.", "max": "24 mg/day"}
-        
-    wt_res = {"valid": True, "dose": f"0.35 mg/kg/day = {0.35*weight:.2f} mg/day (แบ่งให้ทุก 4-6 ชม.)", "max": "-"}
-    render_dual_results(age_res, wt_res)
+        age_out_of_range = True
+        age_range_text = "มากกว่าหรือเท่ากับ 2 ปี (24 เดือนขึ้นไป)"
+    
+    w_dose = (0.35 * weight_kg) / 4 # แบ่งจ่ายทุก 4-6 ชม.
+    weight_dose_info = f"0.35 mg/kg/day แบ่งจ่ายทุก 4-6 ชม. (~{w_dose:.2f} mg/dose) -> {format_volume_result(w_dose)}"
 
 elif selected_drug == "Diphenhydramine":
-    age_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 2:
-        age_res["msg"] = "รองรับในเด็กอายุตั้งแต่ 2 ปีขึ้นไป"
-    elif 2 <= total_years < 6:
-        age_res = {"valid": True, "dose": "6.25 - 12.5 mg ทุก 6-8 ชม.", "max": "75 mg/day"}
-    elif 6 <= total_years < 12:
-        age_res = {"valid": True, "dose": "12.5 - 25 mg ทุก 6-8 ชม.", "max": "150 mg/day"}
+    if 24 <= total_months <= 72:
+        age_dose_info = f"6.25 - 12.5 mg ทุก 6-8 ชม. (Max 75 mg/day) -> {format_volume_result((6.25, 12.5))}"
+    elif 72 < total_months < 144:
+        age_dose_info = f"12.5 - 25 mg ทุก 6-8 ชม. (Max 150 mg/day) -> {format_volume_result((12.5, 25))}"
+    elif total_months >= 144:
+        age_dose_info = f"25 - 50 mg ทุก 6-8 ชม. (Max 300 mg/day) -> {format_volume_result((25, 50))}"
     else:
-        age_res = {"valid": True, "dose": "25 - 50 mg ทุก 6-8 ชม.", "max": "300 mg/day"}
+        age_out_of_range = True
+        age_range_text = "มากกว่าหรือเท่ากับ 2 ปีขึ้นไป"
         
-    wt_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if 2 <= total_years <= 12:
-        wt_res = {"valid": True, "dose": f"5 mg/kg/day = {5*weight:.2f} mg/day (แบ่งให้ทุก 6-8 ชม.)", "max": "-"}
-    else:
-        wt_res["msg"] = "เกณฑ์คำนวณตามน้ำหนักใช้เฉพาะอายุ 2-12 ปี"
-    render_dual_results(age_res, wt_res)
+    if 24 <= total_months <= 144:
+        w_dose = (5 * weight_kg) / 3
+        weight_dose_info = f"5 mg/kg/day แบ่งจ่ายทุก 6-8 ชม. (~{w_dose:.2f} mg/dose) -> {format_volume_result(w_dose)}"
 
 elif selected_drug == "Hydroxyzine":
-    age_res = {"valid": True, "dose": "12.5 mg/dose ทุก 6-8 ชม." if total_years < 6 else "12.5 - 25 mg/dose ทุก 6-8 ชม."}
-    if weight <= 40:
-        wt_res = {"valid": True, "dose": f"2 mg/kg/day = {2*weight:.2f} mg/day (แบ่งให้ทุก 6-8 ชม.)", "max": "50 mg/day"}
+    if total_months < 72:
+        age_dose_info = f"12.5 mg/dose ทุก 6-8 ชม. -> {format_volume_result(12.5)}"
     else:
-        wt_res = {"valid": True, "dose": "25 - 50 mg/dose วันละ 1-2 ครั้ง", "max": "100 mg/day"}
-    render_dual_results(age_res, wt_res)
+        age_dose_info = f"12.5 - 25 mg/dose ทุก 6-8 ชม. -> {format_volume_result((12.5, 25))}"
+        
+    if weight_kg <= 40:
+        w_dose = (2 * weight_kg) / 3
+        weight_dose_info = f"2 mg/kg/day แบ่งจ่ายทุก 6-8 ชม. (Max 50 mg/day) (~{w_dose:.2f} mg/dose) -> {format_volume_result(w_dose)}"
+    else:
+        weight_dose_info = f"25 - 50 mg/dose วันละ 1-2 ครั้ง (Max 100 mg/day) -> {format_volume_result((25, 50))}"
 
 elif selected_drug == "Cetirizine":
-    age_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 6:
-        age_res["msg"] = "รองรับในเด็กอายุตั้งแต่ 6 เดือนขึ้นไป"
-    elif 6 <= total_months <= 11:
-        age_res = {"valid": True, "dose": "2.5 mg วันละ 1 ครั้ง", "max": "-"}
+    if 6 <= total_months <= 11:
+        age_dose_info = f"2.5 mg วันละ 1 ครั้ง -> {format_volume_result(2.5)}"
     elif 12 <= total_months <= 23:
-        age_res = {"valid": True, "dose": "2.5 mg วันละ 1-2 ครั้ง", "max": "5 mg/day"}
-    elif 2 <= total_years <= 5:
-        age_res = {"valid": True, "dose": "2.5 mg วันละ 1-2 ครั้ง หรือ 5 mg วันละ 1 ครั้ง", "max": "5 mg/day"}
-    elif 6 <= total_years <= 12:
-        age_res = {"valid": True, "dose": "5 - 10 mg วันละ 1 ครั้ง", "max": "10 mg/day"}
+        age_dose_info = f"2.5 mg วันละ 1-2 ครั้ง (Max 5 mg/day) -> {format_volume_result(2.5)}"
+    elif 24 <= total_months <= 60:
+        age_dose_info = f"2.5 mg วันละ 1-2 ครั้ง หรือ 5 mg วันละ 1 ครั้ง (Max 5 mg/day) -> {format_volume_result(2.5)} ถึง {format_volume_result(5)}"
+    elif 61 <= total_months <= 144:
+        age_dose_info = f"5 - 10 mg วันละ 1 ครั้ง (Max 10 mg/day) -> {format_volume_result((5, 10))}"
+    elif total_months > 144:
+        age_dose_info = f"10 mg วันละ 1 ครั้ง (Max 40 mg/day) -> {format_volume_result(10)}"
     else:
-        age_res = {"valid": True, "dose": "10 mg วันละ 1 ครั้ง", "max": "40 mg/day"}
+        age_out_of_range = True
+        age_range_text = "6 เดือนขึ้นไป"
         
-    wt_res = {"valid": True, "dose": f"0.25 mg/kg/day = {0.25*weight:.2f} mg/day (วันละ 1-2 ครั้ง)", "max": "-"}
-    render_dual_results(age_res, wt_res)
+    w_dose = 0.25 * weight_kg
+    weight_dose_info = f"0.25 mg/kg/day วันละ 1-2 ครั้ง (~{w_dose:.2f} mg/day) -> {format_volume_result(w_dose)}"
 
 elif selected_drug == "Levocetirizine":
-    age_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 6:
-        age_res["msg"] = "รองรับในเด็กอายุตั้งแต่ 6 เดือนขึ้นไป"
-    elif 6 <= total_months and total_years <= 5:
-        age_res = {"valid": True, "dose": "1.25 mg วันละ 1 ครั้ง", "max": "1.25 mg/day"}
-    elif 6 <= total_years <= 11:
-        age_res = {"valid": True, "dose": "2.5 mg วันละ 1 ครั้ง", "max": "2.5 mg/day"}
+    if 6 <= total_months <= 60:
+        age_dose_info = f"1.25 mg วันละ 1 ครั้ง (Max 1.25 mg/day) -> {format_volume_result(1.25)}"
+    elif 61 <= total_months <= 131:
+        age_dose_info = f"2.5 mg วันละ 1 ครั้ง (Max 2.5 mg/day) -> {format_volume_result(2.5)}"
+    elif total_months >= 132:
+        age_dose_info = f"2.5 - 5 mg วันละ 1 ครั้ง (Max 20 mg/day) -> {format_volume_result((2.5, 5))}"
     else:
-        age_res = {"valid": True, "dose": "2.5 - 5 mg วันละ 1 ครั้ง", "max": "20 mg/day"}
+        age_out_of_range = True
+        age_range_text = "6 เดือนขึ้นไป"
         
-    wt_res = {"valid": True, "dose": f"0.125 mg/kg/day = {0.125*weight:.2f} mg/day (วันละ 1 ครั้ง)", "max": "5 mg/day"}
-    render_dual_results(age_res, wt_res)
+    w_dose = min(0.125 * weight_kg, 5.0)
+    weight_dose_info = f"0.125 mg/kg/day วันละ 1 ครั้ง (Max 5 mg/day) (~{w_dose:.2f} mg/day) -> {format_volume_result(w_dose)}"
 
 elif selected_drug == "Loratadine":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 2:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 2 ปีขึ้นไป"
-    elif 2 <= total_years <= 5:
-        res = {"valid": True, "dose": "5 mg วันละ 1 ครั้ง", "max": "10 mg/day"}
+    if 24 <= total_months <= 60:
+        age_dose_info = f"5 mg วันละ 1 ครั้ง (Max 10 mg/day) -> {format_volume_result(5)}"
+    elif total_months >= 72:
+        age_dose_info = f"5 mg วันละ 2 ครั้ง หรือ 10 mg วันละ 1 ครั้ง (Max 10 mg/day) -> {format_volume_result(5)} หรือ {format_volume_result(10)}"
     else:
-        res = {"valid": True, "dose": "5 mg/dose วันละ 2 ครั้ง หรือ 10 mg วันละ 1 ครั้ง", "max": "10 mg/day"}
-    render_single_result(res, "ตามอายุ")
+        age_out_of_range = True
+        age_range_text = "2 ปีขึ้นไป (24 เดือนขึ้นไป)"
 
 elif selected_drug == "Desloratadine":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 6:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 6 เดือนขึ้นไป"
-    elif 6 <= total_months <= 11:
-        res = {"valid": True, "dose": "1 mg วันละ 1 ครั้ง", "max": "-"}
-    elif 12 <= total_months and total_years <= 5:
-        res = {"valid": True, "dose": "1.25 mg วันละ 1 ครั้ง", "max": "-"}
-    elif 6 <= total_years <= 11:
-        res = {"valid": True, "dose": "2.5 mg วันละ 1 ครั้ง", "max": "-"}
+    if 6 <= total_months <= 11:
+        age_dose_info = f"1 mg วันละ 1 ครั้ง -> {format_volume_result(1)}"
+    elif 12 <= total_months <= 60:
+        age_dose_info = f"1.25 mg วันละ 1 ครั้ง -> {format_volume_result(1.25)}"
+    elif 61 <= total_months <= 131:
+        age_dose_info = f"2.5 mg วันละ 1 ครั้ง -> {format_volume_result(2.5)}"
+    elif total_months >= 132:
+        age_dose_info = f"5 mg วันละ 1 ครั้ง (Max 20 mg/day) -> {format_volume_result(5)}"
     else:
-        res = {"valid": True, "dose": "5 mg วันละ 1 ครั้ง", "max": "20 mg/day"}
-    render_single_result(res, "ตามอายุ")
+        age_out_of_range = True
+        age_range_text = "6 เดือนขึ้นไป"
 
 elif selected_drug == "Fexofenadine":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 6:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 6 เดือนขึ้นไป"
-    elif 6 <= total_months and total_years <= 2:
-        d = "15 mg/dose วันละ 2 ครั้ง" if weight < 10.5 else "30 mg/dose วันละ 2 ครั้ง"
-        res = {"valid": True, "dose": d, "max": "-"}
-    elif 2 < total_years <= 11:
-        res = {"valid": True, "dose": "30 mg/dose วันละ 2 ครั้ง", "max": "60 mg/day"}
+    if 6 <= total_months < 24:
+        if weight_kg < 10.5:
+            age_dose_info = f"15 mg/dose วันละ 2 ครั้ง -> {format_volume_result(15)}"
+        else:
+            age_dose_info = f"30 mg/dose วันละ 2 ครั้ง -> {format_volume_result(30)}"
+    elif 24 <= total_months <= 131:
+        age_dose_info = f"30 mg/dose วันละ 2 ครั้ง (Max 60 mg/day) -> {format_volume_result(30)}"
+    elif total_months >= 132:
+        age_dose_info = f"60 mg/dose วันละ 2 ครั้ง หรือ 180 mg วันละ 1 ครั้ง (Max 720 mg/day) -> {format_volume_result(60)} หรือ {format_volume_result(180)}"
     else:
-        res = {"valid": True, "dose": "60 mg/dose วันละ 2 ครั้ง หรือ 180 mg วันละ 1 ครั้ง", "max": "720 mg/day"}
-    render_single_result(res, "ตามอายุ/น้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "6 เดือนขึ้นไป"
 
 elif selected_drug == "Ketotifen":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 6:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 6 ปีขึ้นไป"
+    if total_months >= 72:
+        age_dose_info = f"0.25 mg/kg/dose วันละ 2 ครั้ง (Max 1 mg/dose)"
+        w_dose = min(0.25 * weight_kg, 1.0)
+        weight_dose_info = f"0.25 mg/kg/dose (~{w_dose:.2f} mg/dose) -> {format_volume_result(w_dose)}"
     else:
-        d_val = 0.25 * weight
-        res = {"valid": True, "dose": f"0.25 mg/kg/dose = {d_val:.2f} mg/dose วันละ 2 ครั้ง", "max": "1 mg/dose"}
-    render_single_result(res, "ตามน้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "6 ปีขึ้นไป (72 เดือนขึ้นไป)"
 
 elif selected_drug == "Montelukast":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 6:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 6 เดือนขึ้นไป"
-    elif 6 <= total_months and total_years <= 5:
-        res = {"valid": True, "dose": "4 mg วันละ 1 ครั้ง", "max": "4 mg/day"}
-    elif 6 <= total_years <= 14:
-        res = {"valid": True, "dose": "5 mg วันละ 1 ครั้ง", "max": "5 mg/day"}
+    if 6 <= total_months <= 60:
+        age_dose_info = f"4 mg วันละ 1 ครั้ง (Max 4 mg/day) -> {format_volume_result(4)}"
+    elif 61 <= total_months <= 168:
+        age_dose_info = f"5 mg วันละ 1 ครั้ง (Max 5 mg/day) -> {format_volume_result(5)}"
+    elif total_months >= 180:
+        age_dose_info = f"10 mg วันละ 1 ครั้ง (Max 10 mg/day) -> {format_volume_result(10)}"
     else:
-        res = {"valid": True, "dose": "10 mg วันละ 1 ครั้ง", "max": "10 mg/day"}
-    render_single_result(res, "ตามอายุ")
+        age_out_of_range = True
+        age_range_text = "6 เดือนขึ้นไป"
 
 elif selected_drug == "Phenylephrine HCl":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 4:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 4 ปีขึ้นไป"
-    elif 4 <= total_years <= 5:
-        res = {"valid": True, "dose": "2.5 mg/dose ทุก 4 ชม.", "max": "15 mg/day"}
-    elif 6 <= total_years <= 11:
-        res = {"valid": True, "dose": "5 mg/dose ทุก 4 ชม.", "max": "30 mg/day"}
+    if 48 <= total_months <= 60:
+        age_dose_info = f"2.5 mg/dose ทุก 4 ชม. (Max 15 mg/day) -> {format_volume_result(2.5)}"
+    elif 72 <= total_months <= 131:
+        age_dose_info = f"5 mg/dose ทุก 4 ชม. (Max 30 mg/day) -> {format_volume_result(5)}"
+    elif total_months >= 132:
+        age_dose_info = f"10 mg/dose ทุก 4 ชม. (Max 60 mg/day) -> {format_volume_result(10)}"
     else:
-        res = {"valid": True, "dose": "10 mg/dose ทุก 4 ชม.", "max": "60 mg/day"}
-    render_single_result(res, "ตามอายุ")
+        age_out_of_range = True
+        age_range_text = "4 ปีขึ้นไป (48 เดือนขึ้นไป)"
 
 elif selected_drug == "Pseudoephedrine":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 2:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 2 ปีขึ้นไป"
-    elif 2 <= total_years <= 5:
-        res = {"valid": True, "dose": f"15 mg/dose ทุก 4-6 ชม. หรือ 1 mg/kg/dose = {1*weight:.2f} mg/dose ทุก 4-6 ชม.", "max": "60 mg/day"}
-    elif 6 <= total_years <= 12:
-        res = {"valid": True, "dose": "30 mg/dose ทุก 4-6 ชม.", "max": "120 mg/day"}
+    if 24 <= total_months <= 60:
+        age_dose_info = f"15 mg/dose ทุก 4-6 ชม. (Max 60 mg/day) -> {format_volume_result(15)}"
+        w_dose = 1 * weight_kg
+        weight_dose_info = f"1 mg/kg/dose ทุก 4-6 ชม. (~{w_dose:.2f} mg/dose) -> {format_volume_result(w_dose)}"
+    elif 72 <= total_months <= 144:
+        age_dose_info = f"30 mg/dose ทุก 4-6 ชม. (Max 120 mg/day) -> {format_volume_result(30)}"
+    elif total_months > 144:
+        age_dose_info = f"60 mg/dose ทุก 4-6 ชม. หรือ SR 120-240 mg/day (Max 240 mg/day) -> {format_volume_result(60)}"
     else:
-        res = {"valid": True, "dose": "60 mg/dose ทุก 4-6 ชม. (หรือ SR tab: 120 mg วันละ 1-2 ครั้ง / 240 mg วันละ 1 ครั้ง)", "max": "240 mg/day"}
-    render_single_result(res, "ตามอายุ/น้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "2 ปีขึ้นไป (24 เดือนขึ้นไป)"
 
 elif selected_drug == "Glyceryl-guaiacolate (Guaifenesin)":
-    age_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 2:
-        age_res["msg"] = "รองรับในเด็กอายุตั้งแต่ 2 ปีขึ้นไป"
-    elif 2 <= total_years <= 5:
-        age_res = {"valid": True, "dose": "50 - 100 mg ทุก 4 ชม.", "max": "6 doses/day"}
-    elif 6 <= total_years <= 11:
-        age_res = {"valid": True, "dose": "100 - 200 mg ทุก 4 ชม.", "max": "6 doses/day"}
+    if 24 <= total_months <= 60:
+        age_dose_info = f"50 - 100 mg ทุก 4 ชม. (Max 6 doses/day) -> {format_volume_result((50, 100))}"
+    elif 72 <= total_months <= 131:
+        age_dose_info = f"100 - 200 mg ทุก 4 ชม. (Max 6 doses/day) -> {format_volume_result((100, 200))}"
+    elif total_months >= 132:
+        age_dose_info = f"200 - 400 mg ทุก 4 ชม. (Max 6 doses/day) -> {format_volume_result((200, 400))}"
     else:
-        age_res = {"valid": True, "dose": "200 - 400 mg ทุก 4 ชม.", "max": "6 doses/day"}
+        age_out_of_range = True
+        age_range_text = "2 ปีขึ้นไป (24 เดือนขึ้นไป)"
         
-    wt_res = {"valid": True, "dose": f"12 mg/kg/day = {12*weight:.2f} mg/day (แบ่งให้วันละ 3-4 ครั้ง)", "max": "-"}
-    render_dual_results(age_res, wt_res)
+    w_dose = (12 * weight_kg) / 3
+    weight_dose_info = f"12 mg/kg/day แบ่งจ่าย 3-4 ครั้ง/วัน (~{w_dose:.2f} mg/dose) -> {format_volume_result(w_dose)}"
 
 elif selected_drug == "Acetylcysteine":
-    age_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 2:
-        age_res["msg"] = "รองรับในเด็กอายุตั้งแต่ 2 ปีขึ้นไป"
-    elif 2 <= total_years <= 6:
-        age_res = {"valid": True, "dose": "50 - 100 mg วันละ 2-4 ครั้ง", "max": "-"}
+    if 24 <= total_months <= 72:
+        age_dose_info = f"50 - 100 mg วันละ 2-4 ครั้ง -> {format_volume_result((50, 100))}"
+    elif total_months > 72:
+        age_dose_info = f"100 - 200 mg วันละ 3 ครั้ง หรือ 600 mg วันละ 1 ครั้ง (Max 600 mg/day) -> {format_volume_result((100, 200))}"
     else:
-        age_res = {"valid": True, "dose": "100 - 200 mg วันละ 3 ครั้ง หรือ 600 mg วันละ 1 ครั้ง", "max": "600 mg/day"}
+        age_out_of_range = True
+        age_range_text = "2 ปีขึ้นไป (24 เดือนขึ้นไป)"
         
-    wt_res = {"valid": True, "dose": f"20 - 30 mg/kg/day = {20*weight:.2f} - {30*weight:.2f} mg/day (แบ่งให้วันละ 2-3 ครั้ง)", "max": "-"}
-    render_dual_results(age_res, wt_res)
+    w_dose_min = (20 * weight_kg) / 3
+    w_dose_max = (30 * weight_kg) / 3
+    weight_dose_info = f"20-30 mg/kg/day แบ่งจ่าย 2-3 ครั้ง/วัน (~{w_dose_min:.2f} - {w_dose_max:.2f} mg/dose) -> {format_volume_result((w_dose_min, w_dose_max))}"
 
 elif selected_drug == "Ambroxol":
-    age_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 2:
-        age_res["msg"] = "รองรับในเด็กอายุตั้งแต่ 2 ปีขึ้นไป"
-    elif 2 <= total_years <= 5:
-        age_res = {"valid": True, "dose": "7.5 - 15 mg/dose วันละ 3 ครั้ง", "max": "-"}
-    elif 6 <= total_years <= 12:
-        age_res = {"valid": True, "dose": "15 - 30 mg/dose วันละ 2-3 ครั้ง", "max": "-"}
+    if 24 <= total_months <= 60:
+        age_dose_info = f"7.5 - 15 mg/dose วันละ 3 ครั้ง -> {format_volume_result((7.5, 15))}"
+    elif 72 <= total_months <= 144:
+        age_dose_info = f"15 - 30 mg/dose วันละ 2-3 ครั้ง -> {format_volume_result((15, 30))}"
+    elif total_months > 144:
+        age_dose_info = f"60 - 120 mg/day วันละ 2-3 ครั้ง"
     else:
-        age_res = {"valid": True, "dose": "60 - 120 mg/day แบ่งวันละ 2-3 ครั้ง", "max": "-"}
+        age_out_of_range = True
+        age_range_text = "2 ปีขึ้นไป (24 เดือนขึ้นไป)"
         
-    wt_res = {"valid": True, "dose": f"1.2 - 1.6 mg/kg/day = {1.2*weight:.2f} - {1.6*weight:.2f} mg/day (แบ่งให้วันละ 2-3 ครั้ง)", "max": "-"}
-    render_dual_results(age_res, wt_res)
+    w_dose_min = (1.2 * weight_kg) / 3
+    w_dose_max = (1.6 * weight_kg) / 3
+    weight_dose_info = f"1.2-1.6 mg/kg/day แบ่งจ่าย 2-3 ครั้ง/วัน (~{w_dose_min:.2f} - {w_dose_max:.2f} mg/dose) -> {format_volume_result((w_dose_min, w_dose_max))}"
 
 elif selected_drug == "Carbocysteine":
-    age_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 2:
-        age_res["msg"] = "รองรับในเด็กอายุตั้งแต่ 2 ปีขึ้นไป"
-    elif 2 <= total_years <= 5:
-        age_res = {"valid": True, "dose": "200 - 500 mg/day แบ่งวันละ 2-3 ครั้ง", "max": "-"}
-    elif 6 <= total_years <= 11:
-        age_res = {"valid": True, "dose": "300 - 750 mg/day แบ่งวันละ 3 ครั้ง", "max": "-"}
-    elif 12 <= total_years < 15:
-        age_res = {"valid": True, "dose": "300 mg - 2.25 g/day แบ่งวันละ 3 ครั้ง", "max": "2.25 g/day"}
+    if total_months > 24:
+        w_dose_min = (15 * weight_kg) / 3
+        w_dose_max = (20 * weight_kg) / 3
+        weight_dose_info = f"15-20 mg/kg/day แบ่งจ่าย 3-4 ครั้ง (~{w_dose_min:.2f} - {w_dose_max:.2f} mg/dose) -> {format_volume_result((w_dose_min, w_dose_max))}"
+
+    if 24 <= total_months <= 60:
+        age_dose_info = f"200 - 500 mg/day วันละ 2-3 ครั้ง"
+    elif 72 <= total_months <= 131:
+        age_dose_info = f"300 - 750 mg/day วันละ 3 ครั้ง"
+    elif 132 <= total_months <= 179:
+        age_dose_info = f"300 mg - 2.25 g/day วันละ 3 ครั้ง"
+    elif total_months >= 180:
+        age_dose_info = f"750 mg - 2.25 g/day วันละ 3 ครั้ง"
     else:
-        age_res = {"valid": True, "dose": "750 mg - 2.25 g/day แบ่งวันละ 3 ครั้ง", "max": "2.25 g/day"}
-        
-    wt_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years >= 2:
-        wt_res = {"valid": True, "dose": f"15 - 20 mg/kg/day = {15*weight:.2f} - {20*weight:.2f} mg/day (แบ่งให้วันละ 3-4 ครั้ง)", "max": "-"}
-    else:
-        wt_res["msg"] = "คำนวณตามน้ำหนักใช้ในเด็กอายุ > 2 ปี"
-    render_dual_results(age_res, wt_res)
+        age_out_of_range = True
+        age_range_text = "2 ปีขึ้นไป (24 เดือนขึ้นไป)"
 
 elif selected_drug == "Bromhexine":
-    age_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 2:
-        age_res["msg"] = "รองรับในเด็กอายุตั้งแต่ 2 ปีขึ้นไป"
-    elif 2 <= total_years <= 5:
-        age_res = {"valid": True, "dose": "2 mg/dose วันละ 3 ครั้ง หรือ 4 mg/dose วันละ 2 ครั้ง", "max": "8 mg/day"}
-    elif 6 <= total_years <= 11:
-        age_res = {"valid": True, "dose": "4 - 8 mg/dose วันละ 3 ครั้ง", "max": "24 mg/day"}
+    if 24 <= total_months <= 60:
+        age_dose_info = f"2 mg/dose วันละ 3 ครั้ง หรือ 4 mg/dose วันละ 2 ครั้ง (Max 8 mg/day) -> {format_volume_result(2)} หรือ {format_volume_result(4)}"
+    elif 72 <= total_months <= 131:
+        age_dose_info = f"4 - 8 mg/dose วันละ 3 ครั้ง (Max 24 mg/day) -> {format_volume_result((4, 8))}"
+    elif total_months >= 132:
+        age_dose_info = f"8 - 16 mg/dose วันละ 3 ครั้ง (Max 48 mg/day) -> {format_volume_result((8, 16))}"
     else:
-        age_res = {"valid": True, "dose": "8 - 16 mg/dose วันละ 3 ครั้ง", "max": "48 mg/day"}
+        age_out_of_range = True
+        age_range_text = "2 ปีขึ้นไป (24 เดือนขึ้นไป)"
         
-    wt_res = {"valid": True, "dose": f"0.6 - 0.8 mg/kg/day = {0.6*weight:.2f} - {0.8*weight:.2f} mg/day (แบ่งให้วันละ 3-4 ครั้ง)", "max": "-"}
-    render_dual_results(age_res, wt_res)
+    w_dose_min = (0.6 * weight_kg) / 3
+    w_dose_max = (0.8 * weight_kg) / 3
+    weight_dose_info = f"0.6-0.8 mg/kg/day แบ่งจ่าย 3-4 ครั้ง (~{w_dose_min:.2f} - {w_dose_max:.2f} mg/dose) -> {format_volume_result((w_dose_min, w_dose_max))}"
 
 elif selected_drug == "Dextromethorphan":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 4:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 4 ปีขึ้นไป"
-    elif 4 <= total_years <= 5:
-        res = {"valid": True, "dose": "2.5 - 7.5 mg ทุก 4-8 ชม.", "max": "30 mg/day"}
-    elif 6 <= total_years <= 11:
-        res = {"valid": True, "dose": "5 - 10 mg ทุก 4 ชม.", "max": "60 mg/day"}
+    if 48 <= total_months <= 60:
+        age_dose_info = f"2.5 - 7.5 mg ทุก 4-8 ชม. (Max 30 mg/day) -> {format_volume_result((2.5, 7.5))}"
+    elif 72 <= total_months <= 131:
+        age_dose_info = f"5 - 10 mg ทุก 4 ชม. (Max 60 mg/day) -> {format_volume_result((5, 10))}"
+    elif total_months >= 132:
+        age_dose_info = f"20 mg ทุก 4 ชม. (Max 120 mg/day) -> {format_volume_result(20)}"
     else:
-        res = {"valid": True, "dose": "20 mg ทุก 4 ชม.", "max": "120 mg/day"}
-    render_single_result(res, "ตามอายุ")
+        age_out_of_range = True
+        age_range_text = "4 ปีขึ้นไป (48 เดือนขึ้นไป)"
 
 elif selected_drug == "Salbutamol":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 2:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 2 ปีขึ้นไป"
-    elif 2 <= total_years <= 6:
-        d1, d2 = 0.1 * weight, 0.2 * weight
-        res = {"valid": True, "dose": f"0.1 - 0.2 mg/kg/dose = {d1:.2f} - {d2:.2f} mg/dose วันละ 3 ครั้ง", "max": "12 mg/day"}
-    elif 7 <= total_years <= 14:
-        res = {"valid": True, "dose": "2 mg/dose วันละ 3-4 ครั้ง", "max": "24 mg/day"}
+    if 24 <= total_months <= 72:
+        w_dose = 0.1 * weight_kg
+        age_dose_info = f"0.1 - 0.2 mg/kg/dose วันละ 3 ครั้ง (Max 12 mg/day)"
+        weight_dose_info = f"คำนวณตามน้ำหนัก (0.1 mg/kg/dose): ~{w_dose:.2f} mg/dose -> {format_volume_result(w_dose)}"
+    elif 84 <= total_months <= 168:
+        age_dose_info = f"2 mg/dose วันละ 3-4 ครั้ง (Max 24 mg/day) -> {format_volume_result(2)}"
+    elif total_months >= 180:
+        age_dose_info = f"2 - 4 mg/dose วันละ 3-4 ครั้ง (Max 32 mg/day) -> {format_volume_result((2, 4))}"
     else:
-        res = {"valid": True, "dose": "2 - 4 mg/dose วันละ 3-4 ครั้ง", "max": "32 mg/day"}
-    render_single_result(res, "ตามอายุ/น้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "2 ปีขึ้นไป (24 เดือนขึ้นไป)"
 
 elif selected_drug == "Terbutaline sulfate":
-    res = {"valid": True, "dose": "", "max": ""}
-    if total_years < 12:
-        d_val = 0.05 * weight
-        res = {"valid": True, "dose": f"0.05 mg/kg/dose = {d_val:.2f} mg/dose วันละ 3 ครั้ง", "max": "5 mg/day"}
-    elif 12 <= total_years <= 14:
-        res = {"valid": True, "dose": "2.5 mg/dose วันละ 3 ครั้ง", "max": "7.5 mg/day"}
-    else:
-        res = {"valid": True, "dose": "5 mg/dose วันละ 3-4 ครั้ง", "max": "15 mg/day"}
-    render_single_result(res, "ตามอายุ/น้ำหนัก")
+    if total_months < 144:
+        w_dose = 0.05 * weight_kg
+        age_dose_info = f"0.05 mg/kg/dose วันละ 3 ครั้ง (Max 5 mg/day)"
+        weight_dose_info = f"คำนวณตามน้ำหนัก (0.05 mg/kg/dose): ~{w_dose:.2f} mg/dose -> {format_volume_result(w_dose)}"
+    elif 144 <= total_months <= 168:
+        age_dose_info = f"2.5 mg/dose วันละ 3 ครั้ง (Max 7.5 mg/day) -> {format_volume_result(2.5)}"
+    elif total_months >= 180:
+        age_dose_info = f"5 mg/dose วันละ 3-4 ครั้ง (Max 15 mg/day) -> {format_volume_result(5)}"
 
 elif selected_drug == "Procaterol (Meptin syrup 5 mcg/ml)":
-    age_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 1:
-        age_res = {"valid": True, "dose": "10 - 15 mcg/dose วันละ 2 ครั้ง", "max": "30 mcg/day"}
-    elif 1 <= total_years <= 2:
-        age_res = {"valid": True, "dose": "15 - 20 mcg/dose วันละ 2 ครั้ง", "max": "40 mcg/day"}
-    elif 3 <= total_years <= 5:
-        age_res = {"valid": True, "dose": "20 - 25 mcg/dose วันละ 2 ครั้ง", "max": "50 mcg/day"}
-    else:
-        age_res = {"valid": True, "dose": "25 mcg/dose วันละ 1-2 ครั้ง", "max": "50 mcg/day"}
+    if total_months < 72:
+        w_dose = 1.25 * weight_kg
+        weight_dose_info = f"1.25 mcg/kg/dose ทุก 12 ชม. (~{w_dose:.2f} mcg/dose) -> {format_volume_result(w_dose, unit='mcg')}"
         
-    wt_res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 6:
-        d_val = 1.25 * weight
-        wt_res = {"valid": True, "dose": f"1.25 mcg/kg/dose = {d_val:.2f} mcg/dose ทุก 12 ชม.", "max": "-"}
-    else:
-        wt_res["msg"] = "คำนวณตามน้ำหนักใช้ในเด็กอายุ < 6 ปี"
-    render_dual_results(age_res, wt_res)
+    if total_months < 12:
+        age_dose_info = f"10 - 15 mcg/dose วันละ 2 ครั้ง (Max 30 mcg/day) -> {format_volume_result((10, 15), unit='mcg')}"
+    elif 12 <= total_months <= 24:
+        age_dose_info = f"15 - 20 mcg/dose วันละ 2 ครั้ง (Max 40 mcg/day) -> {format_volume_result((15, 20), unit='mcg')}"
+    elif 36 <= total_months <= 60:
+        age_dose_info = f"20 - 25 mcg/dose วันละ 2 ครั้ง (Max 50 mcg/day) -> {format_volume_result((20, 25), unit='mcg')}"
+    elif 72 <= total_months <= 216:
+        age_dose_info = f"25 mcg/dose วันละ 1-2 ครั้ง (Max 50 mcg/day) -> {format_volume_result(25, unit='mcg')}"
 
 elif selected_drug == "Dimenhydrinate":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 2:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 2 ปีขึ้นไป"
-    elif 2 <= total_years <= 5:
-        res = {"valid": True, "dose": "15 - 25 mg ทุก 6-8 ชม.", "max": "75 mg/day"}
-    elif 6 <= total_years <= 11:
-        res = {"valid": True, "dose": "25 - 50 mg ทุก 6-8 ชม.", "max": "150 mg/day"}
+    if 24 <= total_months <= 60:
+        age_dose_info = f"15 - 25 mg ทุก 6-8 ชม. (Max 75 mg/day) -> {format_volume_result((15, 25))}"
+    elif 72 <= total_months <= 131:
+        age_dose_info = f"25 - 50 mg ทุก 6-8 ชม. (Max 150 mg/day) -> {format_volume_result((25, 50))}"
     else:
-        res["msg"] = "โปรดใช้อัตราขนาดยาของผู้ใหญ่"
-    render_single_result(res, "ตามอายุ")
+        age_out_of_range = True
+        age_range_text = "2 ถึง 11 ปี (24 ถึง 131 เดือน)"
 
 elif selected_drug == "Domperidone":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if weight < 35:
-        d1 = 0.75 * weight
-        d2_min, d2_max = 0.2 * weight, 0.4 * weight
-        res = {"valid": True, "dose": f"• 0.75 mg/kg/day = {d1:.2f} mg/day (แบ่งวันละ 3 ครั้ง ก่อนอาหาร)\n• หรือ 0.2 - 0.4 mg/kg/dose = {d2_min:.2f} - {d2_max:.2f} mg/dose ทุก 6-8 ชม. ก่อนอาหาร", "max": "30 mg/day"}
+    if weight_kg < 35:
+        w_dose_day = min(0.75 * weight_kg, 30.0)
+        w_dose_single = (0.2 * weight_kg, 0.4 * weight_kg)
+        weight_dose_info = f"0.75 mg/kg/day วันละ 3 ครั้งก่อนอาหาร (~{w_dose_day/3:.2f} mg/dose) -> {format_volume_result(w_dose_day/3)} หรือ 0.2-0.4 mg/kg/dose -> {format_volume_result(w_dose_single)}"
     else:
-        res["msg"] = "น้ำหนักตัว >= 35 kg โปรดใช้เกณฑ์ขนาดยาผู้ใหญ่"
-    render_single_result(res, "ตามน้ำหนัก")
+        weight_dose_info = "น้ำหนักเกิน 35 kg พิจารณาขนาดยาผู้ใหญ่ (Max 30 mg/day)"
 
 elif selected_drug == "Dicyclomine":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 6:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 6 เดือนขึ้นไป"
-    elif 6 <= total_months and total_years < 2:
-        res = {"valid": True, "dose": "5 - 10 mg วันละ 3-4 ครั้ง ก่อนอาหาร", "max": "-"}
+    if 6 <= total_months <= 24:
+        age_dose_info = f"5 - 10 mg วันละ 3-4 ครั้งก่อนอาหาร -> {format_volume_result((5, 10))}"
+    elif total_months > 24:
+        age_dose_info = f"10 mg วันละ 3-4 ครั้ง -> {format_volume_result(10)}"
     else:
-        res = {"valid": True, "dose": "10 mg วันละ 3-4 ครั้ง", "max": "-"}
-    render_single_result(res, "ตามอายุ")
+        age_out_of_range = True
+        age_range_text = "6 เดือนขึ้นไป"
 
 elif selected_drug == "Hyoscine":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 6:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 6 เดือนขึ้นไป"
-    elif 6 <= total_months and total_years < 1:
-        res = {"valid": True, "dose": "5 mg/dose วันละ 3-4 ครั้ง", "max": "-"}
-    elif 1 <= total_years <= 6:
-        res = {"valid": True, "dose": "5 - 10 mg วันละ 3-4 ครั้ง", "max": "-"}
+    if 6 <= total_months <= 12:
+        age_dose_info = f"5 mg/dose วันละ 3-4 ครั้ง -> {format_volume_result(5)}"
+    elif 12 < total_months <= 72:
+        age_dose_info = f"5 - 10 mg วันละ 3-4 ครั้ง -> {format_volume_result((5, 10))}"
     else:
-        res["msg"] = "โปรดใช้อัตราขนาดยาของผู้ใหญ่"
-    render_single_result(res, "ตามอายุ")
+        age_out_of_range = True
+        age_range_text = "6 เดือน ถึง 6 ปี"
 
 elif selected_drug == "Simethicone":
-    res = {"valid": True, "dose": "", "max": "500 mg/day"}
-    if total_years < 2:
-        res["dose"] = "20 mg/dose วันละ 3-4 ครั้ง"
-    elif 2 <= total_years <= 12:
-        res["dose"] = "40 mg/dose วันละ 3-4 ครั้ง"
-    else:
-        res["dose"] = "40 - 125 mg วันละ 3-4 ครั้ง (เกณฑ์ผู้ใหญ่)"
-    render_single_result(res, "ตามอายุ")
+    if total_months < 24:
+        age_dose_info = f"20 mg/dose วันละ 3-4 ครั้ง (Max 500 mg/day) -> {format_volume_result(20)}"
+    elif 24 <= total_months <= 144:
+        age_dose_info = f"40 mg/dose วันละ 3-4 ครั้ง (Max 500 mg/day) -> {format_volume_result(40)}"
 
 elif selected_drug == "Al(OH)3 + Mg(OH)2 (Alum milk)":
-    res = {"valid": True, "dose": "", "max": "-"}
     if total_months <= 1:
-        res["dose"] = f"1 ml/kg/dose = {1*weight:.2f} ml/dose"
+        age_dose_info = f"1 ml/kg/dose -> {1 * weight_kg:.2f} ml"
     elif 1 < total_months <= 12:
-        res["dose"] = "2 - 5 ml/dose"
-    elif 1 < total_years <= 5:
-        res["dose"] = "5 - 15 ml/dose"
-    elif 6 <= total_years <= 12:
-        res["dose"] = "15 - 45 ml/dose"
-    else:
-        res["dose"] = "15 - 45 ml/dose"
-    render_single_result(res, "ตามอายุ/น้ำหนัก")
+        age_dose_info = "2 - 5 ml/dose"
+    elif 12 < total_months <= 60:
+        age_dose_info = "5 - 15 ml/dose"
+    elif 72 <= total_months <= 144:
+        age_dose_info = "15 - 45 ml/dose"
 
 elif selected_drug == "Lactulose (Laevolac)":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 1:
-        res["msg"] = "รองรับในทารกอายุตั้งแต่ 1 เดือนขึ้นไป"
-    elif 1 <= total_months and total_years <= 6:
-        d_wt = 1 * weight
-        d_wt2 = 2 * weight
-        res = {"valid": True, "dose": f"• 5 - 10 ml/day วันละ 1 ครั้ง\n• หรือ 1 - 2 g/kg/day = {d_wt:.2f} - {d_wt2:.2f} g/day", "max": "-"}
-    elif 6 < total_years <= 14:
-        d_wt = 1.5 * weight
-        d_wt2 = 3 * weight
-        res = {"valid": True, "dose": f"• 15 ml/day วันละ 1 ครั้ง\n• หรือ 1.5 - 3 ml/kg/day = {d_wt:.2f} - {d_wt2:.2f} ml/day (แบ่งวันละ 1-2 ครั้ง)", "max": "-"}
+    if 1 <= total_months <= 72:
+        age_dose_info = f"5 - 10 ml/day วันละ 1 ครั้ง"
+        w_dose = 1.5 * weight_kg # ค่าเฉลี่ย 1-2 g/kg/day (Laevolac 10g/15ml)
+        weight_dose_info = f"1 - 2 g/kg/day"
+    elif 72 < total_months <= 168:
+        age_dose_info = f"15 ml/day วันละ 1 ครั้ง"
+        weight_dose_info = f"1.5 - 3 ml/kg/day วันละ 1-2 ครั้ง"
+    elif total_months > 168:
+        age_dose_info = f"15 - 30 ml/day"
     else:
-        res = {"valid": True, "dose": "15 - 30 ml/day", "max": "-"}
-    render_single_result(res, "ตามอายุ/น้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "1 เดือนขึ้นไป"
 
 elif selected_drug == "Metronidazole":
-    d1_min, d1_max = 35 * weight, 50 * weight
-    d2_min, d2_max = 15 * weight, 50 * weight
-    res = {"valid": True, "dose": f"• Amebiasis: 35 - 50 mg/kg/day = {d1_min:.2f} - {d1_max:.2f} mg/day (แบ่งวันละ 3 ครั้ง, สูงสุด 2.25 g/day)\n• Anaerobic infection / Trichomoniasis: 15 - 50 mg/kg/day = {d2_min:.2f} - {d2_max:.2f} mg/day (แบ่งวันละ 3 ครั้ง, สูงสุด 750 mg/dose)", "max": "ตามที่ระบุ"}
-    render_single_result(res, "ตามน้ำหนัก")
+    w_dose_ameba = min((35 * weight_kg)/3, 2250/3)
+    w_dose_anaerobic = min((15 * weight_kg)/3, 750)
+    weight_dose_info = f"Amebiasis: 35-50 mg/kg/day แบ่งจ่าย 3 ครั้ง (~{w_dose_ameba:.2f} mg/dose) -> {format_volume_result(w_dose_ameba)} | Anaerobic/Trichomoniasis: 15-50 mg/kg/day (~{w_dose_anaerobic:.2f} mg/dose) -> {format_volume_result(w_dose_anaerobic)}"
 
 elif selected_drug == "Albendazole":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 1:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 1 ปีขึ้นไป"
+    if 12 <= total_months <= 24:
+        age_dose_info = f"Roundworm/Pinworm/Hookworm: 200 mg กินครั้งเดียว (Single dose) -> {format_volume_result(200)}"
+    elif total_months > 24:
+        age_dose_info = f"Roundworm/Pinworm/Hookworm: 400 mg Single dose | Whipworm: 400 mg OD x 3 วัน | Strongyloides: 400 mg BID x 7 วัน -> {format_volume_result(400)}"
+        w_tape = min(7.5 * weight_kg, 400.0)
+        w_fluke = min(10 * weight_kg, 800.0)
+        weight_dose_info = f"Tapeworm: 7.5 mg/kg/dose BID (~{w_tape:.2f} mg) -> {format_volume_result(w_tape)} | Liver flukes: 10 mg/kg/dose OD (~{w_fluke:.2f} mg) -> {format_volume_result(w_fluke)}"
     else:
-        txt = ""
-        if 1 <= total_years < 2:
-            txt += "• Intestinal roundworm, Pinworm, Hookworm: 200 mg กินครั้งเดียว (Single Dose)\n"
-        else:
-            txt += "• Intestinal roundworm, Pinworm, Hookworm: 400 mg กินครั้งเดียว (Single Dose)\n"
-            txt += "• Whipworm: 400 mg วันละ 1 ครั้ง นาน 3 วัน\n"
-            txt += "• Strongyloidiasis: 400 mg วันละ 2 ครั้ง นาน 7 วัน\n"
-            txt += "• Capillariasis: 400 mg วันละ 1 ครั้ง นาน 10 วัน\n"
-            txt += f"• Tapeworm: 7.5 mg/kg/dose = {7.5*weight:.2f} mg/dose วันละ 2 ครั้ง (สูงสุด 800 mg/day)\n"
-            txt += f"• Liver flukes: 10 mg/kg/dose = {10*weight:.2f} mg/dose วันละ 1 ครั้ง นาน 7 วัน"
-        res = {"valid": True, "dose": txt, "max": "800 mg/day"}
-    render_single_result(res, "ตามอายุ/น้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "1 ปีขึ้นไป (12 เดือนขึ้นไป)"
 
 elif selected_drug == "Mebendazole":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 2:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 2 ปีขึ้นไป"
+    if total_months >= 24:
+        age_dose_info = f"Pinworm: 100 mg Single dose | Roundworm/Whipworm/Hookworm: 100 mg BID x 3 วัน หรือ 500 mg Single dose | Capillariasis: 200 mg OD x 20 วัน -> {format_volume_result(100)}"
     else:
-        txt = "• Intestinal roundworm, Whipworm, Hookworm: 100 mg วันละ 2 ครั้ง นาน 3 วัน (หรือ 500 mg ครั้งเดียว)\n"
-        txt += "• Pinworm: 100 mg กินครั้งเดียว (Single Dose)\n"
-        txt += "• Capillariasis: 200 mg วันละ 1 ครั้ง นาน 20 วัน"
-        res = {"valid": True, "dose": txt, "max": "-"}
-    render_single_result(res, "ตามอายุ")
+        age_out_of_range = True
+        age_range_text = "2 ปีขึ้นไป (24 เดือนขึ้นไป)"
 
 elif selected_drug == "Acetaminophen":
-    d_min, d_max = 10 * weight, 15 * weight
-    max_d = 75 * weight
-    res = {"valid": True, "dose": f"10 - 15 mg/kg/dose = {d_min:.2f} - {d_max:.2f} mg/dose ทุก 4-6 ชม. หลังอาหาร", "max": f"75 mg/kg/day ({max_d:.2f} mg/day)"}
-    render_single_result(res, "ตามน้ำหนัก")
+    w_min = 10 * weight_kg
+    w_max = 15 * weight_kg
+    weight_dose_info = f"10 - 15 mg/kg/dose ทุก 4-6 ชม. (Max 75 mg/kg/day) (~{w_min:.2f} - {w_max:.2f} mg/dose) -> {format_volume_result((w_min, w_max))}"
 
 elif selected_drug == "Diclofenac":
-    d_min, d_max = 2 * weight, 3 * weight
-    res = {"valid": True, "dose": f"2 - 3 mg/kg/day = {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 2-4 ครั้ง หลังอาหาร)", "max": "200 mg/day"}
-    render_single_result(res, "ตามน้ำหนัก")
+    w_dose = (2 * weight_kg) / 3
+    weight_dose_info = f"2 - 3 mg/kg/day แบ่งจ่าย 2-4 ครั้ง หลังอาหาร (Max 200 mg/day) (~{w_dose:.2f} mg/dose) -> {format_volume_result(w_dose)}"
 
 elif selected_drug == "Ibuprofen":
-    d_min, d_max = 5 * weight, 10 * weight
-    max_d = 40 * weight
-    res = {"valid": True, "dose": f"5 - 10 mg/kg/dose = {d_min:.2f} - {d_max:.2f} mg/dose ทุก 6-8 ชม. หลังอาหาร", "max": f"40 mg/kg/day ({max_d:.2f} mg/day)"}
-    render_single_result(res, "ตามน้ำหนัก")
+    w_min = 5 * weight_kg
+    w_max = 10 * weight_kg
+    weight_dose_info = f"5 - 10 mg/kg/dose ทุก 6-8 ชม. หลังอาหาร (Max 40 mg/kg/day) (~{w_min:.2f} - {w_max:.2f} mg/dose) -> {format_volume_result((w_min, w_max))}"
 
 elif selected_drug == "Penicillin V":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 12:
-        d_min, d_max = 25 * weight, 50 * weight
-        res = {"valid": True, "dose": f"25 - 50 mg/kg/day = {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 3-4 ครั้ง ก่อนอาหาร)", "max": "3 g/day"}
+    if total_months < 144:
+        w_min = (25 * weight_kg) / 4
+        w_max = min((50 * weight_kg) / 4, 3000 / 4)
+        weight_dose_info = f"25 - 50 mg/kg/day แบ่งจ่าย 3-4 ครั้ง (Max 3 g/day) (~{w_min:.2f} - {w_max:.2f} mg/dose) -> {format_volume_result((w_min, w_max))}"
     else:
-        res["msg"] = "อายุ >= 12 ปี โปรดใช้อัตราขนาดยาของผู้ใหญ่"
-    render_single_result(res, "ตามน้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "น้อยกว่า 12 ปี"
 
 elif selected_drug == "Amoxicillin / Amoxicillin + Clavulanic acid":
-    res = {"valid": True, "dose": "", "max": "500 mg/dose"}
     if total_months < 3:
-        d_min, d_max = 20 * weight, 30 * weight
-        res["dose"] = f"• Normal Dose: 20 - 30 mg/kg/day = {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 2 ครั้ง หลังอาหาร)"
+        w_min = (20 * weight_kg) / 2
+        w_max = min((30 * weight_kg) / 2, 500.0)
+        weight_dose_info = f"20 - 30 mg/kg/day แบ่งจ่าย 2 ครั้ง (~{w_min:.2f} - {w_max:.2f} mg/dose) -> {format_volume_result((w_min, w_max))}"
     else:
-        d_min, d_max = 20 * weight, 50 * weight
-        d_hi = 80 * weight
-        d_hi2 = 90 * weight
-        res["dose"] = f"• Normal Dose: 20 - 50 mg/kg/day = {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 2-3 ครั้ง หลังอาหาร)\n• High Dose (Acute otitis media/Severe infection): 80 - 90 mg/kg/day = {d_hi:.2f} - {d_hi2:.2f} mg/day (แบ่งวันละ 2 ครั้ง หลังอาหาร)"
-    render_single_result(res, "ตามน้ำหนัก")
+        w_min = (20 * weight_kg) / 3
+        w_max = min((50 * weight_kg) / 3, 500.0)
+        w_high = min((80 * weight_kg) / 2, 1000.0)
+        weight_dose_info = f"ปกติ: 20-50 mg/kg/day (~{w_min:.2f} - {w_max:.2f} mg/dose) -> {format_volume_result((w_min, w_max))} | High dose: 80-90 mg/kg/day (~{w_high:.2f} mg/dose) -> {format_volume_result(w_high)}"
 
 elif selected_drug == "Cloxacillin":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months <= 1:
-        res["msg"] = "รองรับในทารกอายุตั้งแต่ 1 เดือนขึ้นไป"
+    if total_months > 1:
+        w_min = (50 * weight_kg) / 4
+        w_max = min((100 * weight_kg) / 4, 4000 / 4)
+        weight_dose_info = f"50 - 100 mg/kg/day แบ่งจ่าย 3-4 ครั้ง (Max 4 g/day) (~{w_min:.2f} - {w_max:.2f} mg/dose) -> {format_volume_result((w_min, w_max))}"
     else:
-        d_min, d_max = 50 * weight, 100 * weight
-        res = {"valid": True, "dose": f"50 - 100 mg/kg/day = {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 3-4 ครั้ง ก่อนอาหาร)", "max": "4 g/day"}
-    render_single_result(res, "ตามน้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "มากกว่า 1 เดือนขึ้นไป"
 
 elif selected_drug == "Dicloxacillin":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if weight < 40:
-        d_min, d_max = 25 * weight, 50 * weight
-        d_hi1, d_hi2 = 50 * weight, 100 * weight
-        txt = f"• Normal Dose: 25 - 50 mg/kg/day = {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 3-4 ครั้ง ก่อนอาหาร)\n"
-        txt += f"• High Dose (Osteomyelitis): 50 - 100 mg/kg/day = {d_hi1:.2f} - {d_hi2:.2f} mg/day (แบ่งวันละ 3-4 ครั้ง ก่อนอาหาร)"
-        res = {"valid": True, "dose": txt, "max": "500 mg/dose"}
+    if weight_kg < 40:
+        w_min = (25 * weight_kg) / 4
+        w_max = min((50 * weight_kg) / 4, 500.0)
+        w_high = (100 * weight_kg) / 4
+        weight_dose_info = f"ปกติ: 25-50 mg/kg/day (~{w_min:.2f} - {w_max:.2f} mg/dose) -> {format_volume_result((w_min, w_max))} | High dose: 50-100 mg/kg/day (~{w_high:.2f} mg/dose) -> {format_volume_result(w_high)}"
     else:
-        res["msg"] = "น้ำหนัก >= 40 kg โปรดใช้เกณฑ์ขนาดยาผู้ใหญ่"
-    render_single_result(res, "ตามน้ำหนัก")
+        weight_dose_info = "น้ำหนักตั้งแต่ 40 kg ขึ้นไป แนะนำขนาดผู้ใหญ่ 250 - 500 mg/dose"
 
 elif selected_drug == "Cephalexin":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 1:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 1 ปีขึ้นไป"
+    if total_months > 12:
+        w_min = (25 * weight_kg) / 4
+        w_max = min((50 * weight_kg) / 4, 2000 / 4)
+        w_high = min((100 * weight_kg) / 4, 4000 / 4)
+        weight_dose_info = f"ปกติ: 25-50 mg/kg/day (~{w_min:.2f} - {w_max:.2f} mg/dose) -> {format_volume_result((w_min, w_max))} | High dose: 75-100 mg/kg/day (~{w_high:.2f} mg/dose) -> {format_volume_result(w_high)}"
     else:
-        d_min, d_max = 25 * weight, 50 * weight
-        d_hi1, d_hi2 = 75 * weight, 100 * weight
-        txt = f"• Normal Dose: 25 - 50 mg/kg/day = {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 2-4 ครั้ง หลังอาหาร, Max 2 g/day)\n"
-        txt += f"• High Dose (Severe infection): 75 - 100 mg/kg/day = {d_hi1:.2f} - {d_hi2:.2f} mg/day (แบ่งวันละ 3-4 ครั้ง หลังอาหาร, Max 4 g/day)"
-        res = {"valid": True, "dose": txt, "max": "ตามที่ระบุ"}
-    render_single_result(res, "ตามน้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "มากกว่า 1 ปีขึ้นไป (12 เดือนขึ้นไป)"
 
 elif selected_drug == "Cefuroxime":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 3 or total_years > 12:
-        res["msg"] = "รองรับในเด็กช่วงอายุ 3 เดือน ถึง 12 ปี"
+    if 3 <= total_months <= 144:
+        w_min = (20 * weight_kg) / 2
+        w_max = min((30 * weight_kg) / 2, 500.0)
+        weight_dose_info = f"20 - 30 mg/kg/day แบ่งจ่าย 2 ครั้ง (Max 500 mg/dose) (~{w_min:.2f} - {w_max:.2f} mg/dose) -> {format_volume_result((w_min, w_max))}"
     else:
-        d_min, d_max = 20 * weight, 30 * weight
-        res = {"valid": True, "dose": f"20 - 30 mg/kg/day = {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 2 ครั้ง หลังอาหาร)", "max": "500 mg/dose"}
-    render_single_result(res, "ตามน้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "3 เดือน ถึง 12 ปี"
 
 elif selected_drug == "Cefaclor":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months <= 1:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 1 เดือนขึ้นไป"
+    if total_months > 1:
+        w_min = (20 * weight_kg) / 3
+        w_max = min((40 * weight_kg) / 3, 1500 / 3)
+        weight_dose_info = f"20 - 40 mg/kg/day แบ่งจ่าย 2-3 ครั้ง (Max 1.5 g/day) (~{w_min:.2f} - {w_max:.2f} mg/dose) -> {format_volume_result((w_min, w_max))}"
     else:
-        d_min, d_max = 20 * weight, 40 * weight
-        res = {"valid": True, "dose": f"20 - 40 mg/kg/day = {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 2-3 ครั้ง หลังอาหาร)", "max": "1.5 g/day"}
-    render_single_result(res, "ตามน้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "มากกว่า 1 เดือนขึ้นไป"
 
 elif selected_drug == "Cefdinir":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 6 or total_years > 12:
-        res["msg"] = "รองรับในเด็กช่วงอายุ 6 เดือน ถึง 12 ปี"
+    if 6 <= total_months <= 144:
+        w_dose = min(14 * weight_kg, 600.0)
+        weight_dose_info = f"14 mg/kg/day วันละ 1-2 ครั้ง (Max 600 mg/day) (~{w_dose:.2f} mg/day) -> {format_volume_result(w_dose)}"
     else:
-        d_val = 14 * weight
-        res = {"valid": True, "dose": f"14 mg/kg/day = {d_val:.2f} mg/day (แบ่งวันละ 1-2 ครั้ง หลังอาหาร)", "max": "600 mg/day"}
-    render_single_result(res, "ตามน้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "6 เดือน ถึง 12 ปี"
 
 elif selected_drug == "Cefixime":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 6:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 6 เดือนขึ้นไป"
+    if total_months >= 6:
+        w_min = 8 * weight_kg
+        w_max = min(20 * weight_kg, 400.0)
+        weight_dose_info = f"8 - 20 mg/kg/day วันละ 1-2 ครั้ง (Max 400 mg/day) (~{w_min:.2f} - {w_max:.2f} mg/day) -> {format_volume_result((w_min, w_max))}"
     else:
-        d_min, d_max = 8 * weight, 20 * weight
-        res = {"valid": True, "dose": f"8 - 20 mg/kg/day = {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 1-2 ครั้ง หลังอาหาร)", "max": "400 mg/day"}
-    render_single_result(res, "ตามน้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "6 เดือนขึ้นไป"
 
 elif selected_drug == "Cefditoren pivoxil":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_years < 12:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 12 ปีขึ้นไป"
+    if total_months >= 144:
+        w_min = (10 * weight_kg) / 2
+        w_max = (20 * weight_kg) / 2
+        age_dose_info = f"200 - 400 mg วันละ 2 ครั้ง หลังอาหาร -> {format_volume_result((200, 400))}"
+        weight_dose_info = f"10 - 20 mg/kg/day แบ่งจ่าย 2-3 ครั้ง (~{w_min:.2f} - {w_max:.2f} mg/dose) -> {format_volume_result((w_min, w_max))}"
     else:
-        d_min, d_max = 10 * weight, 20 * weight
-        res = {"valid": True, "dose": f"• 10 - 20 mg/kg/day = {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 2-3 ครั้ง หลังอาหาร)\n• หรือ 200 - 400 mg วันละ 2 ครั้ง หลังอาหาร", "max": "-"}
-    render_single_result(res, "ตามอายุ/น้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "12 ปีขึ้นไป (144 เดือนขึ้นไป)"
 
 elif selected_drug == "Erythromycin":
-    d_min, d_max = 30 * weight, 50 * weight
-    txt = f"• Base, Estolate, Stearate: {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 2-4 ครั้ง ก่อนอาหาร, Max 2 g/day)\n"
-    txt += f"• Ethylsuccinate: {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 2-4 ครั้ง หลังอาหาร, Max 3.2 g/day)\n"
-    txt += f"• High dose (Chlamydial conjunctivitis/Pneumonia): {d_min*2:.2f} - {d_max*2:.2f} mg/day (แบ่งวันละ 2-4 ครั้ง, Max 4 g/day)"
-    res = {"valid": True, "dose": txt, "max": "ตามชนิดยา"}
-    render_single_result(res, "ตามน้ำหนัก")
+    w_base = (30 * weight_kg) / 4
+    w_max_base = min((50 * weight_kg) / 4, 2000 / 4)
+    weight_dose_info = f"Base/Estolate/Stearate: 30-50 mg/kg/day (~{w_base:.2f} - {w_max_base:.2f} mg/dose) -> {format_volume_result((w_base, w_max_base))} | Ethylsuccinate: Max 3.2 g/day"
 
 elif selected_drug == "Azithromycin":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 6:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 6 เดือนขึ้นไป"
+    if total_months >= 6:
+        w_dose = min(10 * weight_kg, 500.0)
+        weight_dose_info = f"5-12 mg/kg/day OD x 3 วัน OR 10-12 mg/kg Day 1 แล้ว 5-6 mg/kg Day 2-5 (~{w_dose:.2f} mg/dose) -> {format_volume_result(w_dose)}"
     else:
-        d1_min, d1_max = 5 * weight, 12 * weight
-        d2_d1 = 10 * weight
-        d2_d2 = 5 * weight
-        d3 = 30 * weight
-        txt = f"• Regimen 1: 5 - 12 mg/kg/day = {d1_min:.2f} - {d1_max:.2f} mg/day วันละ 1 ครั้ง ก่อนอาหาร นาน 3 วัน (Max 500 mg/dose)\n"
-        txt += f"• Regimen 2: วันที่ 1 ให้ {d2_d1:.2f} mg (10-12 mg/kg), วันที่ 2-5 ให้ {d2_d2:.2f} mg/day (5-6 mg/kg)\n"
-        txt += f"• Regimen 3 (Single Dose): {d3:.2f} mg (30 mg/kg) ก่อนอาหาร ครั้งเดียว (Max 1500 mg/dose)"
-        res = {"valid": True, "dose": txt, "max": "ตาม Regimen"}
-    render_single_result(res, "ตามน้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "6 เดือนขึ้นไป"
 
 elif selected_drug == "Roxithromycin":
-    d_min, d_max = 5 * weight, 8 * weight
-    res = {"valid": True, "dose": f"5 - 8 mg/kg/day = {d_min:.2f} - {d_max:.2f} mg/day (แบ่งวันละ 2 ครั้ง ก่อนอาหาร)", "max": "300 mg/day"}
-    render_single_result(res, "ตามน้ำหนัก")
+    w_min = (5 * weight_kg) / 2
+    w_max = min((8 * weight_kg) / 2, 300 / 2)
+    weight_dose_info = f"5 - 8 mg/kg/day แบ่งจ่าย วันละ 2 ครั้ง (Max 300 mg/day) (~{w_min:.2f} - {w_max:.2f} mg/dose) -> {format_volume_result((w_min, w_max))}"
 
 elif selected_drug == "Clarithromycin":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 6:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 6 เดือนขึ้นไป"
+    if total_months >= 6:
+        w_dose = min((15 * weight_kg) / 2, 500.0)
+        weight_dose_info = f"15 mg/kg/day แบ่งจ่าย วันละ 2 ครั้ง (Max 500 mg/dose) (~{w_dose:.2f} mg/dose) -> {format_volume_result(w_dose)}"
     else:
-        d_val = 15 * weight
-        res = {"valid": True, "dose": f"15 mg/kg/day = {d_val:.2f} mg/day (แบ่งวันละ 2 ครั้ง หลังอาหาร)", "max": "500 mg/dose"}
-    render_single_result(res, "ตามน้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "6 เดือนขึ้นไป"
 
 elif selected_drug == "Co-trimoxazole (TMP + SMX)":
-    res = {"valid": False, "dose": "", "max": "", "msg": ""}
-    if total_months < 2:
-        res["msg"] = "รองรับในเด็กอายุตั้งแต่ 2 เดือนขึ้นไป"
+    if total_months >= 2:
+        w_tmp = min((8 * weight_kg) / 2, 160.0)
+        w_smx = min((40 * weight_kg) / 2, 800.0)
+        weight_dose_info = f"TMP 8 mg/kg/day + SMX 40 mg/kg/day แบ่งจ่าย 2 ครั้ง (~TMP {w_tmp:.2f} mg + SMX {w_smx:.2f} mg/dose)"
     else:
-        tmp_norm, smx_norm = 8 * weight, 40 * weight
-        tmp_hi1, tmp_hi2 = 15 * weight, 20 * weight
-        smx_hi1, smx_hi2 = 75 * weight, 100 * weight
-        txt = f"• Normal Dose: TMP {tmp_norm:.2f} mg/day + SMX {smx_norm:.2f} mg/day (แบ่งวันละ 2 ครั้ง หลังอาหาร) [Max TMP 320 mg/day, SMX 1600 mg/day]\n"
-        txt += f"• High Dose (PCP/Meningitis): TMP {tmp_hi1:.2f}-{tmp_hi2:.2f} mg/day + SMX {smx_hi1:.2f}-{smx_hi2:.2f} mg/day (แบ่งวันละ 3-4 ครั้ง หลังอาหาร)"
-        res = {"valid": True, "dose": txt, "max": "ตามที่ระบุ"}
-    render_single_result(res, "ตามน้ำหนัก")
+        age_out_of_range = True
+        age_range_text = "2 เดือนขึ้นไป"
+
+
+# --- แสดงผลการเตือนและคำนวณ ---
+
+# 1. แสดงเตือนกรณีอายุนอกเกณฑ์
+if age_out_of_range:
+    st.error(f"⚠️ **แจ้งเตือน:** อายุของผู้ป่วย ({age_years} ปี {age_months} เดือน) **ไม่อยู่ในช่วงเกณฑ์อายุที่ใช้คำนวณ** ของยา {selected_drug}\n\n*(ช่วงอายุที่รองรับสำหรับยาตัวนี้คือ: **{age_range_text}**)*")
+
+# 2. แสดงผลตามเกณฑ์อายุ (ถ้ามี)
+if age_dose_info:
+    st.info(f"📌 **ขนาดยาคำนวณตามอายุ (Age-based dose):**\n\n{age_dose_info}")
+
+# 3. แสดงผลตามเกณฑ์น้ำหนัก (ถ้ามี)
+if weight_dose_info:
+    st.success(f"⚖️ **ขนาดยาคำนวณตามน้ำหนัก (Weight-based dose):**\n\n{weight_dose_info}")
+
+# กรณีไม่มีข้อมูลทั้งสองทาง
+if not age_dose_info and not weight_dose_info and not age_out_of_range:
+    st.warning("⚠️ ไม่มีข้อมูลเกณฑ์คำนวณเฉพาะช่วงอายุน้ำหนักนี้ โปรดตรวจสอบเอกสารกำกับยาเพิ่มเติม")
+
+st.markdown("---")
+st.caption("⚠️ **หมายเหตุ:** โปรแกรมนี้ใช้สำหรับช่วยคำนวณเบื้องต้นเท่านั้น ควรตรวจสอบความถูกต้องและด่านการแพทย์ก่อนใช้จริง")
