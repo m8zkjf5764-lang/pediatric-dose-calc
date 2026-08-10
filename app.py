@@ -17,7 +17,6 @@ with col1:
     with col_m:
         age_months = st.number_input("เดือน (Months)", min_value=0, max_value=11, value=0, step=1)
     
-    # คำนวณอายุรวมเป็นเดือนเพื่อใช้ประมวลผล Logic
     total_months = (age_years * 12) + age_months
 
 with col2:
@@ -30,27 +29,33 @@ st.markdown("---")
 # --- Section 2: เลือกยาและความเข้มข้น ---
 st.header("2. เลือกยาและความเข้มข้น")
 
-# รายชื่อยาทั้งหมด 55 ตัว
-drug_list = [
-    # 1. Respiratory
-    "Brompheniramine maleate", "Chlorpheniramine maleate", "Diphenhydramine", "Hydroxyzine",
-    "Cetirizine", "Levocetirizine", "Loratadine", "Desloratadine", "Fexofenadine", "Ketotifen",
-    "Montelukast", "Phenylephrine HCl", "Pseudoephedrine", "Glyceryl-guaiacolate (Guaifenesin)",
-    "Acetylcysteine", "Ambroxol", "Carbocysteine", "Bromhexine", "Dextromethorphan",
-    "Salbutamol", "Terbutaline sulfate", "Procaterol (Meptin syrup 5 mcg/ml)",
-    # 2. GI
-    "Dimenhydrinate", "Domperidone", "Dicyclomine", "Hyoscine", "Simethicone",
-    "Al(OH)3 + Mg(OH)2 (Alum milk)", "Lactulose (Laevolac)", "Metronidazole",
-    "Albendazole", "Mebendazole",
-    # 3. Analgesic & Antipyretic
-    "Acetaminophen", "Diclofenac", "Ibuprofen",
-    # 4. Antimicrobial
-    "Penicillin V", "Amoxicillin / Amoxicillin + Clavulanic acid", "Cloxacillin", "Dicloxacillin",
-    "Cephalexin", "Cefuroxime", "Cefaclor", "Cefdinir", "Cefixime", "Cefditoren pivoxil",
-    "Erythromycin", "Azithromycin", "Roxithromycin", "Clarithromycin", "Co-trimoxazole (TMP + SMX)"
-]
+# รายชื่อแยกตามหมวดหมู่
+drug_categories = {
+    "1. Respiratory": [
+        "Brompheniramine maleate", "Chlorpheniramine maleate", "Diphenhydramine", "Hydroxyzine",
+        "Cetirizine", "Levocetirizine", "Loratadine", "Desloratadine", "Fexofenadine", "Ketotifen",
+        "Montelukast", "Phenylephrine HCl", "Pseudoephedrine", "Glyceryl-guaiacolate (Guaifenesin)",
+        "Acetylcysteine", "Ambroxol", "Carbocysteine", "Bromhexine", "Dextromethorphan",
+        "Salbutamol", "Terbutaline sulfate", "Procaterol (Meptin syrup 5 mcg/ml)"
+    ],
+    "2. GI": [
+        "Dimenhydrinate", "Domperidone", "Dicyclomine", "Hyoscine", "Simethicone",
+        "Al(OH)3 + Mg(OH)2 (Alum milk)", "Lactulose (Laevolac)", "Metronidazole",
+        "Albendazole", "Mebendazole"
+    ],
+    "3. Analgesic & Antipyretic": [
+        "Acetaminophen", "Diclofenac", "Ibuprofen"
+    ],
+    "4. Antimicrobial": [
+        "Penicillin V", "Amoxicillin / Amoxicillin + Clavulanic acid", "Cloxacillin", "Dicloxacillin",
+        "Cephalexin", "Cefuroxime", "Cefaclor", "Cefdinir", "Cefixime", "Cefditoren pivoxil",
+        "Erythromycin", "Azithromycin", "Roxithromycin", "Clarithromycin", "Co-trimoxazole (TMP + SMX)"
+    ]
+}
 
-selected_drug = st.selectbox("เลือกรายการยา:", drug_list)
+# Flat list สำหรับ dropdown
+all_drugs = [drug for category in drug_categories.values() for drug in category]
+selected_drug = st.selectbox("เลือกรายการยา:", all_drugs)
 
 col_conc1, col_conc2 = st.columns(2)
 with col_conc1:
@@ -60,18 +65,18 @@ with col_conc2:
 
 st.markdown("---")
 
-# --- Function คำนวณแปลง mg/mcg เป็น ml และ ช้อนชา ---
+# --- Helper Function แปลงหน่วย ---
 def format_volume_result(dose_val, unit="mg"):
     if dose_val is None or conc_mg <= 0:
         return "N/A"
-    if isinstance(dose_val, tuple): # กรณีช่วงขนาดยา (min, max)
-        d_min, d_max = dose_val
+    if isinstance(dose_val, (tuple, list)):
+        d_min, d_max = dose_val[0], dose_val[1]
         ml_min = (d_min * conc_ml) / conc_mg
         ml_max = (d_max * conc_ml) / conc_mg
         tsp_min = ml_min / 5.0
         tsp_max = ml_max / 5.0
         return f"{d_min:.2f} - {d_max:.2f} {unit} ({ml_min:.2f} - {ml_max:.2f} ml / {tsp_min:.2f} - {tsp_max:.2f} ช้อนชา)"
-    else: # กรณีขนาดยาค่าเดียว
+    else:
         ml = (dose_val * conc_ml) / conc_mg
         tsp = ml / 5.0
         return f"{dose_val:.2f} {unit} ({ml:.2f} ml / {tsp:.2f} ช้อนชา)"
@@ -84,19 +89,19 @@ weight_dose_info = None
 age_out_of_range = False
 age_range_text = ""
 
-# Logic การคำนวณแยกตามรายยา (55 รายการ)
+# --- Engine คำนวณขนาดยา ---
 if selected_drug == "Brompheniramine maleate":
     if 24 <= total_months <= 72:
-        age_dose_info = "0.125 mg/kg/dose ทุก 6-8 ชม. (Max 8 mg/day)"
+        age_dose_info = f"0.125 mg/kg/dose ทุก 6-8 ชม. (Max 8 mg/day)"
     elif 72 < total_months <= 144:
         age_dose_info = f"2 - 4 mg ทุก 6-8 ชม. (Max 16 mg/day) -> {format_volume_result((2, 4))}"
     elif total_months > 144:
         age_dose_info = f"4 - 8 mg ทุก 6-8 ชม. (Max 24 mg/day) -> {format_volume_result((4, 8))}"
     else:
         age_out_of_range = True
-        age_range_text = "มากกว่าหรือเท่ากับ 2 ปี (24 เดือนขึ้นไป)"
+        age_range_text = "2 ปีขึ้นไป (24 เดือนขึ้นไป)"
     
-    w_dose = (0.5 * weight_kg) / 3 # แบ่งจ่ายทุก 6-8 ชม. (3 ครั้ง/วัน)
+    w_dose = (0.5 * weight_kg) / 3
     weight_dose_info = f"0.5 mg/kg/day แบ่งจ่ายทุก 6-8 ชม. (~{w_dose:.2f} mg/dose) -> {format_volume_result(w_dose)}"
 
 elif selected_drug == "Chlorpheniramine maleate":
@@ -108,9 +113,9 @@ elif selected_drug == "Chlorpheniramine maleate":
         age_dose_info = f"4 mg ทุก 4-6 ชม. (Max 24 mg/day) -> {format_volume_result(4)}"
     else:
         age_out_of_range = True
-        age_range_text = "มากกว่าหรือเท่ากับ 2 ปี (24 เดือนขึ้นไป)"
+        age_range_text = "2 ปีขึ้นไป (24 เดือนขึ้นไป)"
     
-    w_dose = (0.35 * weight_kg) / 4 # แบ่งจ่ายทุก 4-6 ชม.
+    w_dose = (0.35 * weight_kg) / 4
     weight_dose_info = f"0.35 mg/kg/day แบ่งจ่ายทุก 4-6 ชม. (~{w_dose:.2f} mg/dose) -> {format_volume_result(w_dose)}"
 
 elif selected_drug == "Diphenhydramine":
@@ -122,7 +127,7 @@ elif selected_drug == "Diphenhydramine":
         age_dose_info = f"25 - 50 mg ทุก 6-8 ชม. (Max 300 mg/day) -> {format_volume_result((25, 50))}"
     else:
         age_out_of_range = True
-        age_range_text = "มากกว่าหรือเท่ากับ 2 ปีขึ้นไป"
+        age_range_text = "2 ปีขึ้นไป"
         
     if 24 <= total_months <= 144:
         w_dose = (5 * weight_kg) / 3
@@ -210,8 +215,8 @@ elif selected_drug == "Fexofenadine":
 
 elif selected_drug == "Ketotifen":
     if total_months >= 72:
-        age_dose_info = f"0.25 mg/kg/dose วันละ 2 ครั้ง (Max 1 mg/dose)"
         w_dose = min(0.25 * weight_kg, 1.0)
+        age_dose_info = f"0.25 mg/kg/dose วันละ 2 ครั้ง (Max 1 mg/dose)"
         weight_dose_info = f"0.25 mg/kg/dose (~{w_dose:.2f} mg/dose) -> {format_volume_result(w_dose)}"
     else:
         age_out_of_range = True
@@ -387,8 +392,9 @@ elif selected_drug == "Dimenhydrinate":
 elif selected_drug == "Domperidone":
     if weight_kg < 35:
         w_dose_day = min(0.75 * weight_kg, 30.0)
-        w_dose_single = (0.2 * weight_kg, 0.4 * weight_kg)
-        weight_dose_info = f"0.75 mg/kg/day วันละ 3 ครั้งก่อนอาหาร (~{w_dose_day/3:.2f} mg/dose) -> {format_volume_result(w_dose_day/3)} หรือ 0.2-0.4 mg/kg/dose -> {format_volume_result(w_dose_single)}"
+        w_dose_single_min = 0.2 * weight_kg
+        w_dose_single_max = 0.4 * weight_kg
+        weight_dose_info = f"0.75 mg/kg/day วันละ 3 ครั้งก่อนอาหาร (~{w_dose_day/3:.2f} mg/dose) -> {format_volume_result(w_dose_day/3)} หรือ 0.2-0.4 mg/kg/dose -> {format_volume_result((w_dose_single_min, w_dose_single_max))}"
     else:
         weight_dose_info = "น้ำหนักเกิน 35 kg พิจารณาขนาดยาผู้ใหญ่ (Max 30 mg/day)"
 
@@ -429,7 +435,6 @@ elif selected_drug == "Al(OH)3 + Mg(OH)2 (Alum milk)":
 elif selected_drug == "Lactulose (Laevolac)":
     if 1 <= total_months <= 72:
         age_dose_info = f"5 - 10 ml/day วันละ 1 ครั้ง"
-        w_dose = 1.5 * weight_kg # ค่าเฉลี่ย 1-2 g/kg/day (Laevolac 10g/15ml)
         weight_dose_info = f"1 - 2 g/kg/day"
     elif 72 < total_months <= 168:
         age_dose_info = f"15 ml/day วันละ 1 ครั้ง"
@@ -607,21 +612,16 @@ elif selected_drug == "Co-trimoxazole (TMP + SMX)":
         age_range_text = "2 เดือนขึ้นไป"
 
 
-# --- แสดงผลการเตือนและคำนวณ ---
-
-# 1. แสดงเตือนกรณีอายุนอกเกณฑ์
+# --- Render UI แสดงผลการแจ้งเตือนและการคำนวณ ---
 if age_out_of_range:
     st.error(f"⚠️ **แจ้งเตือน:** อายุของผู้ป่วย ({age_years} ปี {age_months} เดือน) **ไม่อยู่ในช่วงเกณฑ์อายุที่ใช้คำนวณ** ของยา {selected_drug}\n\n*(ช่วงอายุที่รองรับสำหรับยาตัวนี้คือ: **{age_range_text}**)*")
 
-# 2. แสดงผลตามเกณฑ์อายุ (ถ้ามี)
 if age_dose_info:
     st.info(f"📌 **ขนาดยาคำนวณตามอายุ (Age-based dose):**\n\n{age_dose_info}")
 
-# 3. แสดงผลตามเกณฑ์น้ำหนัก (ถ้ามี)
 if weight_dose_info:
     st.success(f"⚖️ **ขนาดยาคำนวณตามน้ำหนัก (Weight-based dose):**\n\n{weight_dose_info}")
 
-# กรณีไม่มีข้อมูลทั้งสองทาง
 if not age_dose_info and not weight_dose_info and not age_out_of_range:
     st.warning("⚠️ ไม่มีข้อมูลเกณฑ์คำนวณเฉพาะช่วงอายุน้ำหนักนี้ โปรดตรวจสอบเอกสารกำกับยาเพิ่มเติม")
 
