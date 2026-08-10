@@ -2,28 +2,25 @@ import streamlit as st
 
 st.set_page_config(page_title="โปรแกรมคำนวณยาสูตรเด็ก", page_icon="👶", layout="wide")
 
-st.title("👶 โปรแกรมคำนวณขนาดยาสำหรับเด็ก")
-st.caption("Pediatric Dose Calculator")
+st.title("👶 โปรแกรมคำนวณขนาดขนาดยาสำหรับเด็ก")
+st.caption("ระบบคำนวณขนาดยา ปริมาตร (ml) และช้อนชา สำหรับใช้งานบนมือถือและคอมพิวเตอร์")
 
 # --- Section 1: ข้อมูลผู้ป่วย ---
 st.subheader("1. ข้อมูลผู้ป่วย")
 col1, col2 = st.columns(2)
 
 with col1:
-    st.write("**อายุผู้ป่วย**")
     col_y, col_m = st.columns(2)
     with col_y:
-        age_years = st.number_input("ปี (Years)", min_value=0, max_value=18, value=2, step=1)
+        age_years = st.number_input("อายุ (ปี)", min_value=0, max_value=18, value=2, step=1)
     with col_m:
-        age_months = st.number_input("เดือน (Months)", min_value=0, max_value=11, value=0, step=1)
-    
+        age_months = st.number_input("อายุ (เดือน)", min_value=0, max_value=11, value=0, step=1)
     total_months = (age_years * 12) + age_months
 
 with col2:
-    st.write("**น้ำหนักผู้ป่วย**")
     weight_kg = st.number_input("น้ำหนัก (kg)", min_value=0.0, max_value=100.0, value=12.0, step=0.5)
 
-st.info(f"👤 **สรุปข้อมูล:** อายุ **{age_years} ปี {age_months} เดือน** ({total_months} เดือน) | น้ำหนัก **{weight_kg:.1f} kg**")
+st.info(f"👤 **ผู้ป่วย:** อายุ **{age_years} ปี {age_months} เดือน** ({total_months} เดือน) | น้ำหนัก **{weight_kg:.1f} kg**")
 st.markdown("---")
 
 # --- Section 2: เลือกยาและความเข้มข้น ---
@@ -58,563 +55,464 @@ with col_conc2:
 
 st.markdown("---")
 
-# --- Helper Functions สำหรับแปลงค่าและแสดงผลแบบอ่านง่ายบนมือถือ ---
-def calc_dose_values(dose_val):
-    if dose_val is None or conc_mg <= 0:
-        return None
-    if isinstance(dose_val, tuple):
-        d_min, d_max = dose_val
-        ml_min = (d_min * conc_ml) / conc_mg
-        ml_max = (d_max * conc_ml) / conc_mg
-        return {
-            "mg": f"{d_min:.2f} - {d_max:.2f}",
-            "ml": f"{ml_min:.2f} - {ml_max:.2f}",
-            "tsp": f"{ml_min/5.0:.2f} - {ml_max/5.0:.2f}"
-        }
-    else:
-        ml = (dose_val * conc_ml) / conc_mg
-        return {
-            "mg": f"{dose_val:.2f}",
-            "ml": f"{ml:.2f}",
-            "tsp": f"{ml/5.0:.2f}"
-        }
+# --- Helper Functions ---
+def calc_ml_tsp(mg_val):
+    """แปลง mg เป็น ml และ ช้อนชา"""
+    if mg_val is None or conc_mg <= 0:
+        return 0.0, 0.0
+    ml = (mg_val * conc_ml) / conc_mg
+    tsp = ml / 5.0
+    return ml, tsp
 
-def render_compact_result(title, dose_val, unit_name, frequency, max_dose=""):
-    st.markdown(f"#### {title}")
-    res = calc_dose_values(dose_val)
-    if res:
-        # ใช้ตารางกระจายตัวเลขขนาดกำลังพอดี ดูในมือถือแล้วเรียบสวย
-        st.markdown(f"""
-        | ปริมาณตัวยา | ปริมาตร (ml) | ช้อนชา (tsp) |
-        | :---: | :---: | :---: |
-        | **{res['mg']}** {unit_name} | **{res['ml']}** ml | **{res['tsp']}** ช้อนชา |
-        """)
+def render_compact_card(title, mg_single, freq_str, note="", unit="mg"):
+    """แสดงผลลัพธ์แบบการ์ดขนาดพอดีมือถือ ตัวหนังสือไม่ใหญ่เกินไป"""
+    st.markdown(f"##### {title}")
     
-    st.markdown(f"⏱️ **วิธีรับประทาน/ความถี่:** {frequency}")
-    if max_dose:
-        st.caption(f"⚠️ **ขนาดยาสูงสุด (Max Dose):** {max_dose}")
+    if isinstance(mg_single, tuple):
+        m_min, m_max = mg_single
+        ml_min, tsp_min = calc_ml_tsp(m_min)
+        ml_max, tsp_max = calc_ml_tsp(m_max)
+        mg_display = f"{m_min:.2f} - {m_max:.2f} {unit}"
+        ml_display = f"{ml_min:.2f} - {ml_max:.2f} ml"
+        tsp_display = f"{tsp_min:.2f} - {tsp_max:.2f} ช้อนชา"
+    else:
+        ml, tsp = calc_ml_tsp(mg_single)
+        mg_display = f"{mg_single:.2f} {unit}"
+        ml_display = f"{ml:.2f} ml"
+        tsp_display = f"{tsp:.2f} ช้อนชา"
+
+    # HTML/CSS แต่งการ์ดให้อ่านง่าย กระทัดรัด
+    card_html = f"""
+    <div style="background-color: #f0f2f6; border-left: 5px solid #007bff; padding: 12px; border-radius: 6px; margin-bottom: 10px; color: #1f2937;">
+        <div style="font-size: 15px; font-weight: bold; margin-bottom: 6px;">👉 ทานครั้งละ: <span style="color: #d9534f;">{ml_display}</span> ({tsp_display})</div>
+        <div style="font-size: 13px; color: #4b5563;">• คิดเป็นตัวยา: {mg_display} / ครั้ง</div>
+        <div style="font-size: 13px; color: #4b5563;">• ความถี่: {freq_str}</div>
+        {"<div style='font-size: 12px; color: #856404; margin-top: 4px;'>⚠️ " + note + "</div>" if note else ""}
+    </div>
+    """
+    st.markdown(card_html, unsafe_allow_html=True)
+
 
 # --- Section 3: ประมวลผลและแสดงผลลัพธ์ ---
 st.subheader(f"3. ผลการคำนวณ: {selected_drug}")
 
-age_dose_info = None
-weight_dose_info = None
 age_out_of_range = False
 age_range_text = ""
 
-# --- Logic คำนวณขนาดยา 55 ตัว ---
-if selected_drug == "Brompheniramine maleate":
+# --- LOGIC คำนวณรายยา (55 รายการ) ---
+
+if selected_drug == "Acetaminophen":
+    # 10-15 mg/kg/dose ทุก 4-6 ชม.
+    single_min = 10 * weight_kg
+    single_max = 15 * weight_kg
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (Weight-based)", (single_min, single_max), "ทุก 4 - 6 ชั่วโมง เวลาปวดหรือมีไข้", f"Max {75 * weight_kg:.1f} mg/day")
+
+elif selected_drug == "Ibuprofen":
+    # 5-10 mg/kg/dose ทุก 6-8 ชม.
+    single_min = 5 * weight_kg
+    single_max = 10 * weight_kg
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (Weight-based)", (single_min, single_max), "ทุก 6 - 8 ชั่วโมง หลังอาหาร", f"Max {40 * weight_kg:.1f} mg/day")
+
+elif selected_drug == "Diclofenac":
+    # 2-3 mg/kg/day แบ่งจ่าย 3 ครั้ง (ทุก 8 ชม.)
+    single_dose = (2 * weight_kg) / 3
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่งจ่าย 3 ครั้ง/วัน)", single_dose, "วันละ 3 ครั้ง หลังอาหาร (ทุก 8 ชม.)", "Max 200 mg/day")
+
+elif selected_drug == "Brompheniramine maleate":
     if 24 <= total_months <= 72:
-        age_dose_info = ("ตามเกณฑ์อายุ (2-6 ปี)", 0.125 * weight_kg, "mg", "ทุก 6-8 ชม.", "8 mg/day")
+        single_dose = 0.125 * weight_kg
+        render_compact_card("📌 คำนวณตามอายุ/น้ำหนัก", single_dose, "ทุก 6 - 8 ชั่วโมง (วันละ 3-4 ครั้ง)", "Max 8 mg/day")
     elif 72 < total_months <= 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (6-12 ปี)", (2, 4), "mg", "ทุก 6-8 ชม.", "16 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", (2, 4), "ทุก 6 - 8 ชั่วโมง", "Max 16 mg/day")
     elif total_months > 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (>12 ปี)", (4, 8), "mg", "ทุก 6-8 ชม.", "24 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", (4, 8), "ทุก 6 - 8 ชั่วโมง", "Max 24 mg/day")
     else:
         age_out_of_range = True
-        age_range_text = "24 เดือนขึ้นไป (2 ปีขึ้นไป)"
-    
-    w_dose = (0.5 * weight_kg) / 3
-    weight_dose_info = ("คำนวณตามน้ำหนัก (0.5 mg/kg/day)", w_dose, "mg", "แบ่งจ่ายทุก 6-8 ชม.", "")
+        age_range_text = "2 ปีขึ้นไป"
 
 elif selected_drug == "Chlorpheniramine maleate":
     if 24 <= total_months <= 72:
-        age_dose_info = ("ตามเกณฑ์อายุ (2-6 ปี)", 1, "mg", "ทุก 4-6 ชม.", "8 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 1.0, "ทุก 4 - 6 ชั่วโมง", "Max 8 mg/day")
     elif 72 < total_months <= 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (6-12 ปี)", 2, "mg", "ทุก 4-6 ชม.", "12 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 2.0, "ทุก 4 - 6 ชั่วโมง", "Max 12 mg/day")
     elif total_months > 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (>12 ปี)", 4, "mg", "ทุก 4-6 ชม.", "24 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 4.0, "ทุก 4 - 6 ชั่วโมง", "Max 24 mg/day")
     else:
         age_out_of_range = True
-        age_range_text = "24 เดือนขึ้นไป (2 ปีขึ้นไป)"
-    
-    w_dose = (0.35 * weight_kg) / 4
-    weight_dose_info = ("คำนวณตามน้ำหนัก (0.35 mg/kg/day)", w_dose, "mg", "แบ่งจ่ายทุก 4-6 ชม.", "")
+        age_range_text = "2 ปีขึ้นไป"
 
 elif selected_drug == "Diphenhydramine":
     if 24 <= total_months <= 72:
-        age_dose_info = ("ตามเกณฑ์อายุ (2-6 ปี)", (6.25, 12.5), "mg", "ทุก 6-8 ชม.", "75 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", (6.25, 12.5), "ทุก 6 - 8 ชั่วโมง", "Max 75 mg/day")
     elif 72 < total_months < 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (6-12 ปี)", (12.5, 25), "mg", "ทุก 6-8 ชม.", "150 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", (12.5, 25.0), "ทุก 6 - 8 ชั่วโมง", "Max 150 mg/day")
     elif total_months >= 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (>12 ปี)", (25, 50), "mg", "ทุก 6-8 ชม.", "300 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", (25.0, 50.0), "ทุก 6 - 8 ชั่วโมง", "Max 300 mg/day")
     else:
         age_out_of_range = True
-        age_range_text = "24 เดือนขึ้นไป"
-        
-    if 24 <= total_months <= 144:
-        w_dose = (5 * weight_kg) / 3
-        weight_dose_info = ("คำนวณตามน้ำหนัก (5 mg/kg/day)", w_dose, "mg", "แบ่งจ่ายทุก 6-8 ชม.", "")
+        age_range_text = "2 ปีขึ้นไป"
 
 elif selected_drug == "Hydroxyzine":
-    if total_months < 72:
-        age_dose_info = ("ตามเกณฑ์อายุ (<6 ปี)", 12.5, "mg", "ทุก 6-8 ชม.", "")
-    else:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=6 ปี)", (12.5, 25), "mg", "ทุก 6-8 ชม.", "")
-        
-    if weight_kg <= 40:
-        w_dose = (2 * weight_kg) / 3
-        weight_dose_info = ("คำนวณตามน้ำหนัก (2 mg/kg/day)", w_dose, "mg", "แบ่งจ่ายทุก 6-8 ชม.", "50 mg/day")
-    else:
-        weight_dose_info = ("คำนวณตามน้ำหนัก (>40 kg)", (25, 50), "mg", "วันละ 1-2 ครั้ง", "100 mg/day")
+    # 2 mg/kg/day แบ่ง 3 ครั้ง
+    single_dose = (2 * weight_kg) / 3
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่งจ่าย 3 ครั้ง/วัน)", single_dose, "ทุก 6 - 8 ชั่วโมง (วันละ 3 ครั้ง)", "Max 50 mg/day")
 
 elif selected_drug == "Cetirizine":
-    if 6 <= total_months <= 11:
-        age_dose_info = ("ตามเกณฑ์อายุ (6-11 เดือน)", 2.5, "mg", "วันละ 1 ครั้ง", "")
-    elif 12 <= total_months <= 23:
-        age_dose_info = ("ตามเกณฑ์อายุ (12-23 เดือน)", 2.5, "mg", "วันละ 1-2 ครั้ง", "5 mg/day")
+    if 6 <= total_months <= 23:
+        render_compact_card("📌 คำนวณตามอายุ", 2.5, "วันละ 1 ครั้ง")
     elif 24 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (2-5 ปี)", (2.5, 5), "mg", "วันละ 1-2 ครั้ง", "5 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 2.5, "วันละ 1 - 2 ครั้ง", "Max 5 mg/day")
     elif 61 <= total_months <= 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (6-12 ปี)", (5, 10), "mg", "วันละ 1 ครั้ง", "10 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", (5.0, 10.0), "วันละ 1 ครั้ง", "Max 10 mg/day")
     elif total_months > 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (>12 ปี)", 10, "mg", "วันละ 1 ครั้ง", "40 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 10.0, "วันละ 1 ครั้ง")
     else:
         age_out_of_range = True
         age_range_text = "6 เดือนขึ้นไป"
-        
-    w_dose = 0.25 * weight_kg
-    weight_dose_info = ("คำนวณตามน้ำหนัก (0.25 mg/kg/day)", w_dose, "mg", "วันละ 1-2 ครั้ง", "")
 
 elif selected_drug == "Levocetirizine":
     if 6 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 เดือน - 5 ปี)", 1.25, "mg", "วันละ 1 ครั้ง", "1.25 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 1.25, "วันละ 1 ครั้ง")
     elif 61 <= total_months <= 131:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 11 ปี)", 2.5, "mg", "วันละ 1 ครั้ง", "2.5 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 2.5, "วันละ 1 ครั้ง")
     elif total_months >= 132:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=12 ปี)", (2.5, 5), "mg", "วันละ 1 ครั้ง", "20 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", (2.5, 5.0), "วันละ 1 ครั้ง")
     else:
         age_out_of_range = True
         age_range_text = "6 เดือนขึ้นไป"
-        
-    w_dose = min(0.125 * weight_kg, 5.0)
-    weight_dose_info = ("คำนวณตามน้ำหนัก (0.125 mg/kg/day)", w_dose, "mg", "วันละ 1 ครั้ง", "5 mg/day")
 
 elif selected_drug == "Loratadine":
     if 24 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (2 - 5 ปี)", 5, "mg", "วันละ 1 ครั้ง", "10 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 5.0, "วันละ 1 ครั้ง")
     elif total_months >= 72:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=6 ปี)", (5, 10), "mg", "วันละ 1-2 ครั้ง", "10 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 10.0, "วันละ 1 ครั้ง (หรือแบ่งทาน 5 mg วันละ 2 ครั้ง)")
     else:
         age_out_of_range = True
-        age_range_text = "24 เดือนขึ้นไป (2 ปีขึ้นไป)"
+        age_range_text = "2 ปีขึ้นไป"
 
 elif selected_drug == "Desloratadine":
     if 6 <= total_months <= 11:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 11 เดือน)", 1, "mg", "วันละ 1 ครั้ง", "")
+        render_compact_card("📌 คำนวณตามอายุ", 1.0, "วันละ 1 ครั้ง")
     elif 12 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (1 - 5 ปี)", 1.25, "mg", "วันละ 1 ครั้ง", "")
+        render_compact_card("📌 คำนวณตามอายุ", 1.25, "วันละ 1 ครั้ง")
     elif 61 <= total_months <= 131:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 11 ปี)", 2.5, "mg", "วันละ 1 ครั้ง", "")
+        render_compact_card("📌 คำนวณตามอายุ", 2.5, "วันละ 1 ครั้ง")
     elif total_months >= 132:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=12 ปี)", 5, "mg", "วันละ 1 ครั้ง", "20 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 5.0, "วันละ 1 ครั้ง")
     else:
         age_out_of_range = True
         age_range_text = "6 เดือนขึ้นไป"
 
 elif selected_drug == "Fexofenadine":
     if 6 <= total_months < 24:
-        d_val = 15 if weight_kg < 10.5 else 30
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 23 เดือน)", d_val, "mg", "วันละ 2 ครั้ง", "")
+        dose = 15.0 if weight_kg < 10.5 else 30.0
+        render_compact_card("📌 คำนวณตามอายุ/น้ำหนัก", dose, "วันละ 2 ครั้ง (ทุก 12 ชม.)")
     elif 24 <= total_months <= 131:
-        age_dose_info = ("ตามเกณฑ์อายุ (2 - 11 ปี)", 30, "mg", "วันละ 2 ครั้ง", "60 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 30.0, "วันละ 2 ครั้ง (ทุก 12 ชม.)")
     elif total_months >= 132:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=12 ปี)", (60, 180), "mg", "วันละ 1-2 ครั้ง", "720 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 60.0, "วันละ 2 ครั้ง (ทุก 12 ชม.)")
     else:
         age_out_of_range = True
         age_range_text = "6 เดือนขึ้นไป"
 
 elif selected_drug == "Ketotifen":
     if total_months >= 72:
-        w_dose = min(0.25 * weight_kg, 1.0)
-        weight_dose_info = ("คำนวณตามน้ำหนัก (0.25 mg/kg/dose)", w_dose, "mg", "วันละ 2 ครั้ง", "1 mg/dose")
+        single_dose = min(0.25 * weight_kg, 1.0)
+        render_compact_card("⚖️ คำนวณตามน้ำหนัก (0.25 mg/kg/dose)", single_dose, "วันละ 2 ครั้ง (ทุก 12 ชม.)", "Max 1 mg/dose")
     else:
         age_out_of_range = True
-        age_range_text = "72 เดือนขึ้นไป (6 ปีขึ้นไป)"
+        age_range_text = "6 ปีขึ้นไป"
 
 elif selected_drug == "Montelukast":
     if 6 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 เดือน - 5 ปี)", 4, "mg", "วันละ 1 ครั้ง", "4 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 4.0, "วันละ 1 ครั้ง ก่อนนอน")
     elif 61 <= total_months <= 168:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 14 ปี)", 5, "mg", "วันละ 1 ครั้ง", "5 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 5.0, "วันละ 1 ครั้ง ก่อนนอน")
     elif total_months >= 180:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=15 ปี)", 10, "mg", "วันละ 1 ครั้ง", "10 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 10.0, "วันละ 1 ครั้ง ก่อนนอน")
     else:
         age_out_of_range = True
         age_range_text = "6 เดือนขึ้นไป"
 
 elif selected_drug == "Phenylephrine HCl":
     if 48 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (4 - 5 ปี)", 2.5, "mg", "ทุก 4 ชม.", "15 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 2.5, "ทุก 4 ชั่วโมง", "Max 15 mg/day")
     elif 72 <= total_months <= 131:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 11 ปี)", 5, "mg", "ทุก 4 ชม.", "30 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 5.0, "ทุก 4 ชั่วโมง", "Max 30 mg/day")
     elif total_months >= 132:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=12 ปี)", 10, "mg", "ทุก 4 ชม.", "60 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 10.0, "ทุก 4 ชั่วโมง", "Max 60 mg/day")
     else:
         age_out_of_range = True
-        age_range_text = "48 เดือนขึ้นไป (4 ปีขึ้นไป)"
+        age_range_text = "4 ปีขึ้นไป"
 
 elif selected_drug == "Pseudoephedrine":
     if 24 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (2 - 5 ปี)", 15, "mg", "ทุก 4-6 ชม.", "60 mg/day")
-        weight_dose_info = ("คำนวณตามน้ำหนัก (1 mg/kg/dose)", 1 * weight_kg, "mg", "ทุก 4-6 ชม.", "")
+        # 1 mg/kg/dose ทุก 4-6 ชม. (คิดเฉลี่ยวันละ 4 ครั้ง)
+        single_dose = 1.0 * weight_kg
+        render_compact_card("⚖️ คำนวณตามน้ำหนัก (1 mg/kg/dose)", single_dose, "ทุก 4 - 6 ชั่วโมง", "Max 60 mg/day")
     elif 72 <= total_months <= 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 12 ปี)", 30, "mg", "ทุก 4-6 ชม.", "120 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 30.0, "ทุก 4 - 6 ชั่วโมง", "Max 120 mg/day")
     elif total_months > 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (>12 ปี)", 60, "mg", "ทุก 4-6 ชม.", "240 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 60.0, "ทุก 4 - 6 ชั่วโมง", "Max 240 mg/day")
     else:
         age_out_of_range = True
-        age_range_text = "24 เดือนขึ้นไป (2 ปีขึ้นไป)"
+        age_range_text = "2 ปีขึ้นไป"
 
 elif selected_drug == "Glyceryl-guaiacolate (Guaifenesin)":
+    # 12 mg/kg/day แบ่ง 3 ครั้ง
+    single_w = (12 * weight_kg) / 3
     if 24 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (2 - 5 ปี)", (50, 100), "mg", "ทุก 4 ชม.", "6 doses/day")
+        render_compact_card("📌 คำนวณตามอายุ/น้ำหนัก", (50.0, 100.0), "ทุก 4 ชั่วโมง (วันละ 4-6 ครั้ง)")
     elif 72 <= total_months <= 131:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 11 ปี)", (100, 200), "mg", "ทุก 4 ชม.", "6 doses/day")
+        render_compact_card("📌 คำนวณตามอายุ", (100.0, 200.0), "ทุก 4 ชั่วโมง")
     elif total_months >= 132:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=12 ปี)", (200, 400), "mg", "ทุก 4 ชม.", "6 doses/day")
+        render_compact_card("📌 คำนวณตามอายุ", (200.0, 400.0), "ทุก 4 ชั่วโมง")
     else:
         age_out_of_range = True
-        age_range_text = "24 เดือนขึ้นไป (2 ปีขึ้นไป)"
-        
-    w_dose = (12 * weight_kg) / 3
-    weight_dose_info = ("คำนวณตามน้ำหนัก (12 mg/kg/day)", w_dose, "mg", "แบ่งจ่าย 3-4 ครั้ง/วัน", "")
+        age_range_text = "2 ปีขึ้นไป"
 
 elif selected_drug == "Acetylcysteine":
-    if 24 <= total_months <= 72:
-        age_dose_info = ("ตามเกณฑ์อายุ (2 - 6 ปี)", (50, 100), "mg", "วันละ 2-4 ครั้ง", "")
-    elif total_months > 72:
-        age_dose_info = ("ตามเกณฑ์อายุ (>6 ปี)", (100, 200), "mg", "วันละ 3 ครั้ง", "600 mg/day")
-    else:
-        age_out_of_range = True
-        age_range_text = "24 เดือนขึ้นไป (2 ปีขึ้นไป)"
-        
-    w_min = (20 * weight_kg) / 3
-    w_max = (30 * weight_kg) / 3
-    weight_dose_info = ("คำนวณตามน้ำหนัก (20-30 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย 2-3 ครั้ง/วัน", "")
+    # 20-30 mg/kg/day แบ่ง 3 ครั้ง
+    single_min = (20 * weight_kg) / 3
+    single_max = (30 * weight_kg) / 3
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 3 ครั้ง/วัน)", (single_min, single_max), "วันละ 3 ครั้ง (ทุก 8 ชม.)")
 
 elif selected_drug == "Ambroxol":
-    if 24 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (2 - 5 ปี)", (7.5, 15), "mg", "วันละ 3 ครั้ง", "")
-    elif 72 <= total_months <= 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 12 ปี)", (15, 30), "mg", "วันละ 2-3 ครั้ง", "")
-    elif total_months > 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (>12 ปี)", (20, 40), "mg", "วันละ 2-3 ครั้ง", "120 mg/day")
-    else:
-        age_out_of_range = True
-        age_range_text = "24 เดือนขึ้นไป (2 ปีขึ้นไป)"
-        
-    w_min = (1.2 * weight_kg) / 3
-    w_max = (1.6 * weight_kg) / 3
-    weight_dose_info = ("คำนวณตามน้ำหนัก (1.2-1.6 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย 2-3 ครั้ง/วัน", "")
+    # 1.2 - 1.6 mg/kg/day แบ่ง 3 ครั้ง
+    single_min = (1.2 * weight_kg) / 3
+    single_max = (1.6 * weight_kg) / 3
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 3 ครั้ง/วัน)", (single_min, single_max), "วันละ 3 ครั้ง (ทุก 8 ชม.)")
 
 elif selected_drug == "Carbocysteine":
-    if 24 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (2 - 5 ปี)", (66, 166), "mg", "วันละ 2-3 ครั้ง", "")
-    elif 72 <= total_months <= 131:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 11 ปี)", (100, 250), "mg", "วันละ 3 ครั้ง", "")
-    elif total_months >= 132:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=12 ปี)", (250, 750), "mg", "วันละ 3 ครั้ง", "2.25 g/day")
-    else:
-        age_out_of_range = True
-        age_range_text = "24 เดือนขึ้นไป (2 ปีขึ้นไป)"
-
-    w_min = (15 * weight_kg) / 3
-    w_max = (20 * weight_kg) / 3
-    weight_dose_info = ("คำนวณตามน้ำหนัก (15-20 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย 3-4 ครั้ง", "")
+    # 15-20 mg/kg/day แบ่ง 3 ครั้ง
+    single_min = (15 * weight_kg) / 3
+    single_max = (20 * weight_kg) / 3
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 3 ครั้ง/วัน)", (single_min, single_max), "วันละ 3 ครั้ง (ทุก 8 ชม.)")
 
 elif selected_drug == "Bromhexine":
-    if 24 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (2 - 5 ปี)", (2, 4), "mg", "วันละ 2-3 ครั้ง", "8 mg/day")
-    elif 72 <= total_months <= 131:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 11 ปี)", (4, 8), "mg", "วันละ 3 ครั้ง", "24 mg/day")
-    elif total_months >= 132:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=12 ปี)", (8, 16), "mg", "วันละ 3 ครั้ง", "48 mg/day")
-    else:
-        age_out_of_range = True
-        age_range_text = "24 เดือนขึ้นไป (2 ปีขึ้นไป)"
-        
-    w_min = (0.6 * weight_kg) / 3
-    w_max = (0.8 * weight_kg) / 3
-    weight_dose_info = ("คำนวณตามน้ำหนัก (0.6-0.8 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย 3-4 ครั้ง", "")
+    # 0.6 - 0.8 mg/kg/day แบ่ง 3 ครั้ง
+    single_min = (0.6 * weight_kg) / 3
+    single_max = (0.8 * weight_kg) / 3
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 3 ครั้ง/วัน)", (single_min, single_max), "วันละ 3 ครั้ง (ทุก 8 ชม.)")
 
 elif selected_drug == "Dextromethorphan":
     if 48 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (4 - 5 ปี)", (2.5, 7.5), "mg", "ทุก 4-8 ชม.", "30 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", (2.5, 7.5), "ทุก 4 - 8 ชั่วโมง", "Max 30 mg/day")
     elif 72 <= total_months <= 131:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 11 ปี)", (5, 10), "mg", "ทุก 4 ชม.", "60 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", (5.0, 10.0), "ทุก 4 ชั่วโมง", "Max 60 mg/day")
     elif total_months >= 132:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=12 ปี)", 20, "mg", "ทุก 4 ชม.", "120 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 20.0, "ทุก 4 ชั่วโมง", "Max 120 mg/day")
     else:
         age_out_of_range = True
-        age_range_text = "48 เดือนขึ้นไป (4 ปีขึ้นไป)"
+        age_range_text = "4 ปีขึ้นไป"
 
 elif selected_drug == "Salbutamol":
     if 24 <= total_months <= 72:
-        w_dose = 0.1 * weight_kg
-        weight_dose_info = ("คำนวณตามน้ำหนัก (0.1 mg/kg/dose)", w_dose, "mg", "วันละ 3 ครั้ง", "12 mg/day")
+        single_dose = 0.1 * weight_kg
+        render_compact_card("⚖️ คำนวณตามน้ำหนัก (0.1 mg/kg/dose)", single_dose, "วันละ 3 ครั้ง (ทุก 8 ชม.)")
     elif 84 <= total_months <= 168:
-        age_dose_info = ("ตามเกณฑ์อายุ (7 - 14 ปี)", 2, "mg", "วันละ 3-4 ครั้ง", "24 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 2.0, "วันละ 3 - 4 ครั้ง")
     elif total_months >= 180:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=15 ปี)", (2, 4), "mg", "วันละ 3-4 ครั้ง", "32 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", (2.0, 4.0), "วันละ 3 - 4 ครั้ง")
     else:
         age_out_of_range = True
-        age_range_text = "24 เดือนขึ้นไป (2 ปีขึ้นไป)"
+        age_range_text = "2 ปีขึ้นไป"
 
 elif selected_drug == "Terbutaline sulfate":
     if total_months < 144:
-        w_dose = 0.05 * weight_kg
-        weight_dose_info = ("คำนวณตามน้ำหนัก (0.05 mg/kg/dose)", w_dose, "mg", "วันละ 3 ครั้ง", "5 mg/day")
+        single_dose = 0.05 * weight_kg
+        render_compact_card("⚖️ คำนวณตามน้ำหนัก (0.05 mg/kg/dose)", single_dose, "วันละ 3 ครั้ง (ทุก 8 ชม.)")
     elif 144 <= total_months <= 168:
-        age_dose_info = ("ตามเกณฑ์อายุ (12 - 14 ปี)", 2.5, "mg", "วันละ 3 ครั้ง", "7.5 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 2.5, "วันละ 3 ครั้ง")
     elif total_months >= 180:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=15 ปี)", 5, "mg", "วันละ 3-4 ครั้ง", "15 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 5.0, "วันละ 3 - 4 ครั้ง")
 
 elif selected_drug == "Procaterol (Meptin syrup 5 mcg/ml)":
     if total_months < 72:
-        w_dose = 1.25 * weight_kg
-        weight_dose_info = ("คำนวณตามน้ำหนัก (1.25 mcg/kg/dose)", w_dose, "mcg", "ทุก 12 ชม.", "")
-        
-    if total_months < 12:
-        age_dose_info = ("ตามเกณฑ์อายุ (<1 ปี)", (10, 15), "mcg", "วันละ 2 ครั้ง", "30 mcg/day")
-    elif 12 <= total_months <= 24:
-        age_dose_info = ("ตามเกณฑ์อายุ (1 - 2 ปี)", (15, 20), "mcg", "วันละ 2 ครั้ง", "40 mcg/day")
-    elif 36 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (3 - 5 ปี)", (20, 25), "mcg", "วันละ 2 ครั้ง", "50 mcg/day")
-    elif 72 <= total_months <= 216:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 18 ปี)", 25, "mcg", "วันละ 1-2 ครั้ง", "50 mcg/day")
+        single_dose = 1.25 * weight_kg
+        render_compact_card("⚖️ คำนวณตามน้ำหนัก (1.25 mcg/kg/dose)", single_dose, "วันละ 2 ครั้ง (ทุก 12 ชม.)", unit="mcg")
+    else:
+        render_compact_card("📌 คำนวณตามอายุ", 25.0, "วันละ 1 - 2 ครั้ง", unit="mcg")
 
 elif selected_drug == "Dimenhydrinate":
     if 24 <= total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (2 - 5 ปี)", (15, 25), "mg", "ทุก 6-8 ชม.", "75 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", (15.0, 25.0), "ทุก 6 - 8 ชั่วโมง", "Max 75 mg/day")
     elif 72 <= total_months <= 131:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 11 ปี)", (25, 50), "mg", "ทุก 6-8 ชม.", "150 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", (25.0, 50.0), "ทุก 6 - 8 ชั่วโมง", "Max 150 mg/day")
     else:
         age_out_of_range = True
-        age_range_text = "24 ถึง 131 เดือน (2 - 11 ปี)"
+        age_range_text = "2 ถึง 11 ปี"
 
 elif selected_drug == "Domperidone":
-    if weight_kg < 35:
-        w_dose = (0.75 * weight_kg) / 3
-        weight_dose_info = ("คำนวณตามน้ำหนัก (0.75 mg/kg/day)", w_dose, "mg", "วันละ 3 ครั้งก่อนอาหาร", "30 mg/day")
+    # 0.75 mg/kg/day แบ่ง 3 ครั้งก่อนอาหาร
+    single_dose = (0.75 * weight_kg) / 3
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 3 ครั้ง/วัน)", single_dose, "วันละ 3 ครั้ง ก่อนอาหาร 15-30 นาที", "Max 30 mg/day")
 
 elif selected_drug == "Dicyclomine":
     if 6 <= total_months <= 24:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 24 เดือน)", (5, 10), "mg", "วันละ 3-4 ครั้งก่อนอาหาร", "")
+        render_compact_card("📌 คำนวณตามอายุ", (5.0, 10.0), "วันละ 3 - 4 ครั้ง ก่อนอาหาร")
     elif total_months > 24:
-        age_dose_info = ("ตามเกณฑ์อายุ (>2 ปี)", 10, "mg", "วันละ 3-4 ครั้งก่อนอาหาร", "")
+        render_compact_card("📌 คำนวณตามอายุ", 10.0, "วันละ 3 - 4 ครั้ง ก่อนอาหาร")
     else:
         age_out_of_range = True
         age_range_text = "6 เดือนขึ้นไป"
 
 elif selected_drug == "Hyoscine":
     if 6 <= total_months <= 12:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 12 เดือน)", 5, "mg", "วันละ 3-4 ครั้ง", "")
+        render_compact_card("📌 คำนวณตามอายุ", 5.0, "วันละ 3 - 4 ครั้ง")
     elif 12 < total_months <= 72:
-        age_dose_info = ("ตามเกณฑ์อายุ (1 - 6 ปี)", (5, 10), "mg", "วันละ 3-4 ครั้ง", "")
+        render_compact_card("📌 คำนวณตามอายุ", (5.0, 10.0), "วันละ 3 - 4 ครั้ง")
     else:
         age_out_of_range = True
         age_range_text = "6 เดือน ถึง 6 ปี"
 
 elif selected_drug == "Simethicone":
     if total_months < 24:
-        age_dose_info = ("ตามเกณฑ์อายุ (<2 ปี)", 20, "mg", "วันละ 3-4 ครั้ง หลังอาหาร/ก่อนนอน", "500 mg/day")
-    elif 24 <= total_months <= 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (2 - 12 ปี)", 40, "mg", "วันละ 3-4 ครั้ง หลังอาหาร/ก่อนนอน", "500 mg/day")
+        render_compact_card("📌 คำนวณตามอายุ", 20.0, "วันละ 3 - 4 ครั้ง หลังอาหาร/ก่อนนอน")
+    else:
+        render_compact_card("📌 คำนวณตามอายุ", 40.0, "วันละ 3 - 4 ครั้ง หลังอาหาร/ก่อนนอน")
 
 elif selected_drug == "Al(OH)3 + Mg(OH)2 (Alum milk)":
     if total_months <= 1:
-        weight_dose_info = ("คำนวณตามน้ำหนัก (1 ml/kg/dose)", 1 * weight_kg, "ml", "วันละ 3-4 ครั้ง หลังอาหาร", "")
+        single_ml = 1.0 * weight_kg
+        st.write(f"👉 ทานครั้งละ **{single_ml:.1f} ml** (1 ml/kg/dose)")
     elif 1 < total_months <= 12:
-        age_dose_info = ("ตามเกณฑ์อายุ (1-12 เดือน)", (2, 5), "ml", "วันละ 3-4 ครั้ง หลังอาหาร", "")
+        st.write("👉 ทานครั้งละ **2 - 5 ml** วันละ 3-4 ครั้ง หลังอาหาร 1 ชม.")
     elif 12 < total_months <= 60:
-        age_dose_info = ("ตามเกณฑ์อายุ (1-5 ปี)", (5, 15), "ml", "วันละ 3-4 ครั้ง หลังอาหาร", "")
+        st.write("👉 ทานครั้งละ **5 - 15 ml** วันละ 3-4 ครั้ง หลังอาหาร 1 ชม.")
     elif 72 <= total_months <= 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (6-12 ปี)", (15, 45), "ml", "วันละ 3-4 ครั้ง หลังอาหาร", "")
+        st.write("👉 ทานครั้งละ **15 - 45 ml** วันละ 3-4 ครั้ง หลังอาหาร 1 ชม.")
 
 elif selected_drug == "Lactulose (Laevolac)":
     if 1 <= total_months <= 72:
-        age_dose_info = ("ตามเกณฑ์อายุ (1 เดือน - 6 ปี)", (5, 10), "ml", "วันละ 1 ครั้ง", "")
+        st.write("👉 ทาน **5 - 10 ml/day** วันละ 1 ครั้ง")
     elif 72 < total_months <= 168:
-        age_dose_info = ("ตามเกณฑ์อายุ (6 - 14 ปี)", 15, "ml", "วันละ 1 ครั้ง", "")
+        st.write("👉 ทาน **15 ml/day** วันละ 1 ครั้ง")
     elif total_months > 168:
-        age_dose_info = ("ตามเกณฑ์อายุ (>14 ปี)", (15, 30), "ml", "วันละ 1 ครั้ง", "")
+        st.write("👉 ทาน **15 - 30 ml/day** วันละ 1 ครั้ง")
     else:
         age_out_of_range = True
         age_range_text = "1 เดือนขึ้นไป"
 
 elif selected_drug == "Metronidazole":
-    w_dose = min((35 * weight_kg)/3, 750.0)
-    weight_dose_info = ("คำนวณตามน้ำหนัก (Amebiasis: 35 mg/kg/day)", w_dose, "mg", "แบ่งจ่าย วันละ 3 ครั้ง", "")
+    # Amebiasis: 35-50 mg/kg/day แบ่ง 3 ครั้ง
+    single_min = (35 * weight_kg) / 3
+    single_max = (50 * weight_kg) / 3
+    render_compact_card("⚖️ Amebiasis (แบ่ง 3 ครั้ง/วัน)", (single_min, single_max), "วันละ 3 ครั้ง (ทุก 8 ชม.)")
 
 elif selected_drug == "Albendazole":
     if 12 <= total_months <= 24:
-        age_dose_info = ("ตามเกณฑ์อายุ (1 - 2 ปี)", 200, "mg", "รับประทานครั้งเดียว (Single dose)", "")
+        render_compact_card("📌 คำนวณตามอายุ", 200.0, "ทานครั้งเดียว (Single dose)")
     elif total_months > 24:
-        age_dose_info = ("ตามเกณฑ์อายุ (>2 ปี)", 400, "mg", "รับประทานครั้งเดียว หรือ วันละ 1 ครั้ง ตามชนิดพยาธิ", "")
+        render_compact_card("📌 คำนวณตามอายุ", 400.0, "ทานครั้งเดียว ( Single dose ) หรือ วันละ 1 ครั้ง ติดต่อกัน 3 วัน")
     else:
         age_out_of_range = True
-        age_range_text = "12 เดือนขึ้นไป (1 ปีขึ้นไป)"
+        age_range_text = "1 ปีขึ้นไป"
 
 elif selected_drug == "Mebendazole":
     if total_months >= 24:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=2 ปี)", 100, "mg", "รับประทานครั้งเดียว หรือ วันละ 2 ครั้ง x 3 วัน", "")
+        render_compact_card("📌 คำนวณตามอายุ", 100.0, "ทานครั้งเดียว หรือ วันละ 2 ครั้ง ติดต่อกัน 3 วัน")
     else:
         age_out_of_range = True
-        age_range_text = "24 เดือนขึ้นไป (2 ปีขึ้นไป)"
-
-elif selected_drug == "Acetaminophen":
-    w_min = 10 * weight_kg
-    w_max = 15 * weight_kg
-    weight_dose_info = ("คำนวณตามน้ำหนัก (10-15 mg/kg/dose)", (w_min, w_max), "mg", "ทุก 4-6 ชั่วโมง เวลาปวด/มีไข้", "75 mg/kg/day")
-
-elif selected_drug == "Diclofenac":
-    w_dose = (2 * weight_kg) / 3
-    weight_dose_info = ("คำนวณตามน้ำหนัก (2 mg/kg/day)", w_dose, "mg", "แบ่งจ่าย 2-3 ครั้ง หลังอาหาร", "200 mg/day")
-
-elif selected_drug == "Ibuprofen":
-    w_min = 5 * weight_kg
-    w_max = 10 * weight_kg
-    weight_dose_info = ("คำนวณตามน้ำหนัก (5-10 mg/kg/dose)", (w_min, w_max), "mg", "ทุก 6-8 ชั่วโมง หลังอาหารทันที", "40 mg/kg/day")
+        age_range_text = "2 ปีขึ้นไป"
 
 elif selected_drug == "Penicillin V":
-    if total_months < 144:
-        w_min = (25 * weight_kg) / 4
-        w_max = min((50 * weight_kg) / 4, 750.0)
-        weight_dose_info = ("คำนวณตามน้ำหนัก (25-50 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย วันละ 3-4 ครั้ง", "3 g/day")
-    else:
-        age_out_of_range = True
-        age_range_text = "น้อยกว่า 12 ปี"
+    # 25-50 mg/kg/day แบ่ง 4 ครั้ง
+    single_min = (25 * weight_kg) / 4
+    single_max = (50 * weight_kg) / 4
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 4 ครั้ง/วัน)", (single_min, single_max), "ทุก 6 ชั่วโมง ก่อนอาหาร", "Max 3,000 mg/day")
 
 elif selected_drug == "Amoxicillin / Amoxicillin + Clavulanic acid":
     if total_months < 3:
-        w_min = (20 * weight_kg) / 2
-        w_max = min((30 * weight_kg) / 2, 500.0)
-        weight_dose_info = ("คำนวณตามน้ำหนัก (20-30 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย วันละ 2 ครั้ง", "")
+        # 20-30 mg/kg/day แบ่ง 2 ครั้ง
+        s_min = (20 * weight_kg) / 2
+        s_max = (30 * weight_kg) / 2
+        render_compact_card("⚖️ สำหรับเด็ก < 3 เดือน (แบ่ง 2 ครั้ง/วัน)", (s_min, s_max), "ทุก 12 ชั่วโมง")
     else:
-        w_min = (20 * weight_kg) / 3
-        w_max = min((50 * weight_kg) / 3, 500.0)
-        weight_dose_info = ("คำนวณตามน้ำหนัก (20-50 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย วันละ 3 ครั้ง (High dose 80-90 mg/kg/day)", "")
+        # ปกติ 20-50 mg/kg/day แบ่ง 3 ครั้ง
+        s_min = (20 * weight_kg) / 3
+        s_max = (50 * weight_kg) / 3
+        s_high = (80 * weight_kg) / 2 # High dose แบ่ง 2 ครั้ง
+        render_compact_card("⚖️ ขนาดปกติ (แบ่ง 3 ครั้ง/วัน)", (s_min, s_max), "ทุก 8 ชั่วโมง")
+        render_compact_card("⚖️ High dose (แบ่ง 2 ครั้ง/วัน)", s_high, "ทุก 12 ชั่วโมง")
 
 elif selected_drug == "Cloxacillin":
-    if total_months > 1:
-        w_min = (50 * weight_kg) / 4
-        w_max = min((100 * weight_kg) / 4, 1000.0)
-        weight_dose_info = ("คำนวณตามน้ำหนัก (50-100 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย วันละ 3-4 ครั้ง ก่อนอาหาร", "4 g/day")
-    else:
-        age_out_of_range = True
-        age_range_text = "มากกว่า 1 เดือนขึ้นไป"
+    # 50-100 mg/kg/day แบ่ง 4 ครั้ง
+    single_min = (50 * weight_kg) / 4
+    single_max = (100 * weight_kg) / 4
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 4 ครั้ง/วัน)", (single_min, single_max), "ทุก 6 ชั่วโมง ก่อนอาหาร", "Max 4,000 mg/day")
 
 elif selected_drug == "Dicloxacillin":
-    if weight_kg < 40:
-        w_min = (25 * weight_kg) / 4
-        w_max = min((50 * weight_kg) / 4, 500.0)
-        weight_dose_info = ("คำนวณตามน้ำหนัก (25-50 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย วันละ 4 ครั้ง ก่อนอาหาร", "")
-    else:
-        age_dose_info = ("น้ำหนัก >= 40 kg", (250, 500), "mg", "วันละ 4 ครั้ง ก่อนอาหาร", "")
+    # 25-50 mg/kg/day แบ่ง 4 ครั้ง
+    single_min = (25 * weight_kg) / 4
+    single_max = (50 * weight_kg) / 4
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 4 ครั้ง/วัน)", (single_min, single_max), "ทุก 6 ชั่วโมง ก่อนอาหาร")
 
 elif selected_drug == "Cephalexin":
-    if total_months > 12:
-        w_min = (25 * weight_kg) / 4
-        w_max = min((50 * weight_kg) / 4, 500.0)
-        weight_dose_info = ("คำนวณตามน้ำหนัก (25-50 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย วันละ 4 ครั้ง", "4 g/day")
-    else:
-        age_out_of_range = True
-        age_range_text = "มากกว่า 1 ปีขึ้นไป"
+    # 25-50 mg/kg/day แบ่ง 4 ครั้ง
+    single_min = (25 * weight_kg) / 4
+    single_max = (50 * weight_kg) / 4
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 4 ครั้ง/วัน)", (single_min, single_max), "ทุก 6 ชั่วโมง", "Max 2,000 mg/day")
 
 elif selected_drug == "Cefuroxime":
-    if 3 <= total_months <= 144:
-        w_min = (20 * weight_kg) / 2
-        w_max = min((30 * weight_kg) / 2, 500.0)
-        weight_dose_info = ("คำนวณตามน้ำหนัก (20-30 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย วันละ 2 ครั้ง หลังอาหาร", "500 mg/dose")
-    else:
-        age_out_of_range = True
-        age_range_text = "3 เดือน ถึง 12 ปี"
+    # 20-30 mg/kg/day แบ่ง 2 ครั้ง
+    single_min = (20 * weight_kg) / 2
+    single_max = (30 * weight_kg) / 2
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 2 ครั้ง/วัน)", (single_min, single_max), "ทุก 12 ชั่วโมง หลังอาหาร", "Max 500 mg/dose")
 
 elif selected_drug == "Cefaclor":
-    if total_months > 1:
-        w_min = (20 * weight_kg) / 3
-        w_max = min((40 * weight_kg) / 3, 500.0)
-        weight_dose_info = ("คำนวณตามน้ำหนัก (20-40 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย วันละ 3 ครั้ง", "1.5 g/day")
-    else:
-        age_out_of_range = True
-        age_range_text = "มากกว่า 1 เดือนขึ้นไป"
+    # 20-40 mg/kg/day แบ่ง 3 ครั้ง
+    single_min = (20 * weight_kg) / 3
+    single_max = (40 * weight_kg) / 3
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 3 ครั้ง/วัน)", (single_min, single_max), "ทุก 8 ชั่วโมง", "Max 1,500 mg/day")
 
 elif selected_drug == "Cefdinir":
-    if 6 <= total_months <= 144:
-        w_dose = min(14 * weight_kg, 600.0)
-        weight_dose_info = ("คำนวณตามน้ำหนัก (14 mg/kg/day)", w_dose, "mg", "วันละ 1-2 ครั้ง", "600 mg/day")
-    else:
-        age_out_of_range = True
-        age_range_text = "6 เดือน ถึง 12 ปี"
+    # 14 mg/kg/day แบ่ง 2 ครั้ง
+    single_dose = (14 * weight_kg) / 2
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 2 ครั้ง/วัน)", single_dose, "ทุก 12 ชั่วโมง", "Max 600 mg/day")
 
 elif selected_drug == "Cefixime":
-    if total_months >= 6:
-        w_min = 8 * weight_kg
-        w_max = min(20 * weight_kg, 400.0)
-        weight_dose_info = ("คำนวณตามน้ำหนัก (8-20 mg/kg/day)", (w_min, w_max), "mg", "วันละ 1-2 ครั้ง", "400 mg/day")
-    else:
-        age_out_of_range = True
-        age_range_text = "6 เดือนขึ้นไป"
+    # 8 mg/kg/day วันละ 1-2 ครั้ง (กรณีแบ่ง 2 ครั้ง)
+    single_dose = (8 * weight_kg) / 2
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 2 ครั้ง/วัน)", single_dose, "ทุก 12 ชั่วโมง (หรือทานครั้งเดียวต่อวัน)", "Max 400 mg/day")
 
 elif selected_drug == "Cefditoren pivoxil":
-    if total_months >= 144:
-        age_dose_info = ("ตามเกณฑ์อายุ (>=12 ปี)", (200, 400), "mg", "วันละ 2 ครั้ง หลังอาหาร", "")
-    else:
-        age_out_of_range = True
-        age_range_text = "12 ปีขึ้นไป"
+    # 10-20 mg/kg/day แบ่ง 2 ครั้ง
+    single_min = (10 * weight_kg) / 2
+    single_max = (20 * weight_kg) / 2
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 2 ครั้ง/วัน)", (single_min, single_max), "ทุก 12 ชั่วโมง หลังอาหาร")
 
 elif selected_drug == "Erythromycin":
-    w_min = (30 * weight_kg) / 4
-    w_max = min((50 * weight_kg) / 4, 500.0)
-    weight_dose_info = ("คำนวณตามน้ำหนัก (30-50 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย วันละ 4 ครั้ง", "2 g/day")
+    # 30-50 mg/kg/day แบ่ง 4 ครั้ง
+    single_min = (30 * weight_kg) / 4
+    single_max = (50 * weight_kg) / 4
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 4 ครั้ง/วัน)", (single_min, single_max), "ทุก 6 ชั่วโมง")
 
 elif selected_drug == "Azithromycin":
-    if total_months >= 6:
-        w_dose = min(10 * weight_kg, 500.0)
-        weight_dose_info = ("คำนวณตามน้ำหนัก (10 mg/kg/day)", w_dose, "mg", "วันละ 1 ครั้ง ทานต่อเนื่อง 3-5 วัน", "500 mg/day")
-    else:
-        age_out_of_range = True
-        age_range_text = "6 เดือนขึ้นไป"
+    # 10 mg/kg/day วันละ 1 ครั้ง
+    single_dose = min(10 * weight_kg, 500.0)
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (วันละ 1 ครั้ง)", single_dose, "วันละ 1 ครั้ง ติดต่อกัน 3 - 5 วัน", "Max 500 mg/day")
 
 elif selected_drug == "Roxithromycin":
-    w_min = (5 * weight_kg) / 2
-    w_max = min((8 * weight_kg) / 2, 150.0)
-    weight_dose_info = ("คำนวณตามน้ำหนัก (5-8 mg/kg/day)", (w_min, w_max), "mg", "แบ่งจ่าย วันละ 2 ครั้ง ก่อนอาหาร", "300 mg/day")
+    # 5-8 mg/kg/day แบ่ง 2 ครั้ง
+    single_min = (5 * weight_kg) / 2
+    single_max = (8 * weight_kg) / 2
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 2 ครั้ง/วัน)", (single_min, single_max), "ทุก 12 ชั่วโมง ก่อนอาหาร", "Max 300 mg/day")
 
 elif selected_drug == "Clarithromycin":
-    if total_months >= 6:
-        w_dose = min((15 * weight_kg) / 2, 500.0)
-        weight_dose_info = ("คำนวณตามน้ำหนัก (15 mg/kg/day)", w_dose, "mg", "แบ่งจ่าย วันละ 2 ครั้ง", "500 mg/dose")
-    else:
-        age_out_of_range = True
-        age_range_text = "6 เดือนขึ้นไป"
+    # 15 mg/kg/day แบ่ง 2 ครั้ง
+    single_dose = (15 * weight_kg) / 2
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 2 ครั้ง/วัน)", single_dose, "ทุก 12 ชั่วโมง", "Max 500 mg/dose")
 
 elif selected_drug == "Co-trimoxazole (TMP + SMX)":
-    if total_months >= 2:
-        w_tmp = min((8 * weight_kg) / 2, 160.0)
-        weight_dose_info = ("คำนวณตาม TMP (8 mg/kg/day)", w_tmp, "mg TMP", "แบ่งจ่าย วันละ 2 ครั้ง", "")
-    else:
-        age_out_of_range = True
-        age_range_text = "2 เดือนขึ้นไป"
+    # TMP 8 mg/kg/day แบ่ง 2 ครั้ง
+    single_tmp = (8 * weight_kg) / 2
+    render_compact_card("⚖️ คำนวณตามน้ำหนัก (แบ่ง 2 ครั้ง/วัน)", single_tmp, "ทุก 12 ชั่วโมง", "อ้างอิงขนาดยาตามตัวยา TMP")
 
-
-# --- การแสดงผลสรุป ---
+# --- แสดงเตือนอายุนอกเกณฑ์ ---
 if age_out_of_range:
-    st.error(f"⚠️ **ไม่อยู่ในเกณฑ์คำนวณอายุ:** ยา {selected_drug} เหมาะสำหรับเด็กอายุ **{age_range_text}** ขึ้นไป")
-
-if age_dose_info:
-    title, d_val, u_name, freq, m_dose = age_dose_info
-    render_compact_result(f"📌 {title}", d_val, u_name, freq, m_dose)
-    st.markdown("")
-
-if weight_dose_info:
-    title, d_val, u_name, freq, m_dose = weight_dose_info
-    render_compact_result(f"⚖️ {title}", d_val, u_name, freq, m_dose)
-
-if not age_dose_info and not weight_dose_info and not age_out_of_range:
-    st.warning("⚠️ ไม่มีข้อมูลเกณฑ์คำนวณเฉพาะช่วงอายุน้ำหนักนี้ โปรดตรวจสอบเอกสารกำกับยาเพิ่มเติม")
+    st.error(f"⚠️ **แจ้งเตือน:** อายุของผู้ป่วย ({age_years} ปี {age_months} เดือน) **ไม่อยู่ในช่วงเกณฑ์อายุที่รองรับ** ของยา {selected_drug}\n\n*(เกณฑ์อายุที่ใช้ได้: **{age_range_text}**)*")
 
 st.markdown("---")
-st.caption("⚠️ **หมายเหตุ:** โปรแกรมนี้ใช้สำหรับช่วยคำนวณเบื้องต้นเท่านั้น ควรตรวจสอบความถูกต้องและด่านการแพทย์ก่อนใช้จริง")
+st.caption("⚠️ **หมายเหตุ:** ใช้สำหรับช่วยคำนวณเบื้องต้นเท่านั้น ควรตรวจสอบความถูกต้องก่อนใช้จริง")
 
