@@ -627,3 +627,4 @@ if not age_dose_info and not weight_dose_info and not age_out_of_range:
 
 st.markdown("---")
 st.caption("⚠️ **หมายเหตุ:** โปรแกรมนี้ใช้สำหรับช่วยคำนวณเบื้องต้นเท่านั้น ควรตรวจสอบความถูกต้องและด่านการแพทย์ก่อนใช้จริง")
+
