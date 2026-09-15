@@ -481,12 +481,12 @@ elif selected_drug == "Penicillin V":
 elif selected_drug == "Amoxicillin / Amoxicillin + Clavulanic acid":
     if total_months < 3:
         day_min = 20 * weight_kg
-        day_max = min(30 * weight_kg, 500.0)
+        day_max = min(30 * weight_kg, 2000.0)
         render_compact_card("⚖️ ขนาดปกติ (เด็ก < 3 เดือน)", "20 - 30 mg/kg/day แบ่งทานวันละ 2 ครั้ง", (day_min/2, day_max/2), "ทุก 12 ชั่วโมง", per_day_val=(day_min, day_max))
     else:
         day_min = 20 * weight_kg
-        day_max = min(50 * weight_kg, 500.0)
-        day_high = min(80 * weight_kg, 1000.0)
+        day_max = min(50 * weight_kg, 2000.0)
+        day_high = min(80 * weight_kg, 3000.0)
         render_compact_card("⚖️ ขนาดปกติ (Standard dose)", "20 - 50 mg/kg/day แบ่งทานวันละ 3 ครั้ง", (day_min/3, day_max/3), "ทุก 8 ชั่วโมง", per_day_val=(day_min, day_max))
         render_compact_card("⚖️ ขนาดสูง (High dose - AOM/Pneumonia)", "80 - 90 mg/kg/day แบ่งทานวันละ 2 ครั้ง", day_high / 2, "ทุก 12 ชั่วโมง", per_day_val=day_high)
 
